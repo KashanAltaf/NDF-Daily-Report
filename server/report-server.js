@@ -60,15 +60,6 @@ var server = http.createServer(async function (req, res) {
     return;
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/auth/send-otp') {
-    try {
-      await auth.sendOtp(req, res, httpUtil);
-    } catch (e) {
-      httpUtil.sendJson(res, e.code === 'CONFIG' ? 503 : 502, { ok: false, error: e.message || String(e) });
-    }
-    return;
-  }
-
   if (req.method === 'POST' && url.pathname === '/api/auth/verify-otp') {
     try {
       var otpRaw = await httpUtil.readRequestBody(req);
@@ -157,10 +148,10 @@ server.listen(PORT, function () {
   console.log('ADO tests: GET http://localhost:' + PORT + '/api/ado/test-summary');
   console.log('Playwright: POST http://localhost:' + PORT + '/api/playwright/import');
   if (auth.isAuthEnabled()) {
-    console.log('Auth: OTP login enabled for ' + auth.maskEmail(cfg.JIRA_EMAIL));
+    console.log('Auth: Microsoft Authenticator enabled for ' + auth.maskEmail(cfg.JIRA_EMAIL));
     console.log('Login: http://localhost:' + PORT + '/login.html');
   } else {
-    console.log('Auth: disabled (set AUTH_SECRET + RESEND_API_KEY or SMTP_* to enable)');
+    console.log('Auth: disabled (set AUTH_SECRET + AUTH_TOTP_SECRET to enable)');
   }
   if (!cfg.JIRA_EMAIL || !cfg.JIRA_API_TOKEN) {
     console.warn('Warning: JIRA_EMAIL / JIRA_API_TOKEN not set — Jira sync will fail until .env is configured.');

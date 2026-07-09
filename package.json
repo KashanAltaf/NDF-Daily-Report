@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "NDF Daily QA Report with Jira and Azure DevOps sync",
   "scripts": {
-    "report:serve": "node server/report-server.js"
+    "report:serve": "node server/report-server.js",
+    "auth:totp-setup": "node scripts/auth-totp-setup.js"
   },
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.4.7",
-    "nodemailer": "^6.10.1"
+    "otplib": "^12.0.1"
   }
 }

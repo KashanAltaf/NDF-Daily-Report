@@ -1,16 +1,20 @@
 'use strict';
 
 var crypto = require('crypto');
+var { authenticator } = require('otplib');
 
-var OTP_TTL_MS = 10 * 60 * 1000;
 var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-var OTP_RATE_LIMIT_MS = 60 * 1000;
-var CHALLENGE_COOKIE = 'qa_otp_challenge';
 var SESSION_COOKIE = 'qa_session';
-var RATE_COOKIE = 'qa_otp_rate';
+var TOTP_ISSUER = 'NDF Daily QA Report';
+
+authenticator.options = { window: 1 };
 
 function getAuthSecret() {
   return String(process.env.AUTH_SECRET || '').trim();
+}
+
+function getTotpSecret() {
+  return String(process.env.AUTH_TOTP_SECRET || '').trim().replace(/\s+/g, '');
 }
 
 function getAllowedEmail() {
@@ -20,9 +24,8 @@ function getAllowedEmail() {
 function isAuthEnabled() {
   if (!getAuthSecret() || getAuthSecret().length < 16) return false;
   if (!getAllowedEmail()) return false;
-  if (process.env.RESEND_API_KEY) return true;
-  if (process.env.SMTP_HOST && process.env.SMTP_USER) return true;
-  return false;
+  if (!getTotpSecret() || getTotpSecret().length < 16) return false;
+  return true;
 }
 
 function maskEmail(email) {
@@ -54,14 +57,6 @@ function verifySignedToken(token) {
   } catch (e) {
     return null;
   }
-}
-
-function hashOtp(otp) {
-  return crypto.createHmac('sha256', getAuthSecret()).update(String(otp)).digest('hex');
-}
-
-function generateOtp() {
-  return String(crypto.randomInt(100000, 1000000));
 }
 
 function parseCookies(req) {
@@ -105,7 +100,6 @@ function setCookie(res, name, value, maxAgeSec, req) {
 }
 
 function clearCookie(res, name, req) {
-  setCookie(res, name, '', 0, req);
   var cookie = buildCookie(name, '', 0, req, true);
   var existing = res.getHeader && res.getHeader('Set-Cookie');
   if (!existing) res.setHeader('Set-Cookie', cookie);
@@ -137,41 +131,13 @@ function getSessionInfo(req) {
     ok: true,
     authEnabled: true,
     authenticated: !!session,
+    authMethod: 'totp',
     email: session ? maskEmail(session.email) : maskEmail(getAllowedEmail())
   };
 }
 
-async function sendOtp(req, res, httpUtil) {
-  if (!isAuthEnabled()) {
-    httpUtil.sendJson(res, 503, { ok: false, error: 'Auth is not configured on the server.' });
-    return;
-  }
-  var cookies = parseCookies(req);
-  var ratePayload = verifySignedToken(cookies[RATE_COOKIE]);
-  if (ratePayload && ratePayload.sentAt && Date.now() - ratePayload.sentAt < OTP_RATE_LIMIT_MS) {
-    httpUtil.sendJson(res, 429, { ok: false, error: 'Please wait a minute before requesting another code.' });
-    return;
-  }
-
-  var otp = generateOtp();
-  var challenge = signPayload({
-    h: hashOtp(otp),
-    email: getAllowedEmail(),
-    exp: Date.now() + OTP_TTL_MS
-  });
-  var rate = signPayload({ sentAt: Date.now(), exp: Date.now() + OTP_RATE_LIMIT_MS });
-
-  var mail = require('./mail');
-  await mail.sendOtpEmail(getAllowedEmail(), otp);
-
-  setCookie(res, CHALLENGE_COOKIE, challenge, Math.ceil(OTP_TTL_MS / 1000), req);
-  setCookie(res, RATE_COOKIE, rate, 120, req);
-  httpUtil.sendJson(res, 200, {
-    ok: true,
-    sent: true,
-    email: maskEmail(getAllowedEmail()),
-    expiresInMinutes: 10
-  });
+function verifyTotpCode(code) {
+  return authenticator.check(String(code), getTotpSecret());
 }
 
 async function verifyOtp(req, res, httpUtil, body) {
@@ -181,27 +147,23 @@ async function verifyOtp(req, res, httpUtil, body) {
   }
   var code = String((body && body.code) || (body && body.otp) || '').trim();
   if (!/^\d{6}$/.test(code)) {
-    httpUtil.sendJson(res, 400, { ok: false, error: 'Enter the 6-digit code from your email.' });
+    httpUtil.sendJson(res, 400, { ok: false, error: 'Enter the 6-digit code from Microsoft Authenticator.' });
     return;
   }
-  var cookies = parseCookies(req);
-  var challenge = verifySignedToken(cookies[CHALLENGE_COOKIE]);
-  if (!challenge || challenge.h !== hashOtp(code) || challenge.email !== getAllowedEmail()) {
-    httpUtil.sendJson(res, 401, { ok: false, error: 'Invalid or expired code.' });
+  if (!verifyTotpCode(code)) {
+    httpUtil.sendJson(res, 401, { ok: false, error: 'Invalid code. Use the current 6-digit code from Microsoft Authenticator.' });
     return;
   }
   var session = signPayload({
     email: getAllowedEmail(),
     exp: Date.now() + SESSION_TTL_MS
   });
-  clearCookie(res, CHALLENGE_COOKIE, req);
   setCookie(res, SESSION_COOKIE, session, Math.ceil(SESSION_TTL_MS / 1000), req);
   httpUtil.sendJson(res, 200, { ok: true, authenticated: true, email: maskEmail(getAllowedEmail()) });
 }
 
 function logout(req, res, httpUtil) {
   clearCookie(res, SESSION_COOKIE, req);
-  clearCookie(res, CHALLENGE_COOKIE, req);
   httpUtil.sendJson(res, 200, { ok: true, loggedOut: true });
 }
 
@@ -211,7 +173,6 @@ module.exports = {
   getSession: getSession,
   requireAuth: requireAuth,
   getSessionInfo: getSessionInfo,
-  sendOtp: sendOtp,
   verifyOtp: verifyOtp,
   logout: logout
 };

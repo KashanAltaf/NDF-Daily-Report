@@ -15,33 +15,23 @@
   input { width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid #c7d2fe; border-radius:6px; font-size:16px; letter-spacing:2px; text-align:center; }
   button { width:100%; margin-top:14px; padding:11px 14px; border:none; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer; }
   .primary { background:#16265f; color:#fff; }
-  .secondary { background:#eef2ff; color:#16265f; margin-top:8px; }
   .msg { margin-top:12px; font-size:12px; color:#555; min-height:18px; }
   .err { color:#b42318; }
-  .ok { color:#1f8a4c; }
-  .step { display:none; }
-  .step.active { display:block; }
+  .hint { margin:0 0 14px; font-size:13px; color:#444; line-height:1.5; }
 </style>
 </head>
 <body>
 <div class="card">
   <div class="head">
     <h1>NDF Daily QA Report</h1>
-    <p id="loginSubtitle">Secure access required</p>
+    <p>Microsoft Authenticator sign-in</p>
   </div>
   <div class="body">
-    <div id="stepSend" class="step active">
-      <p style="margin:0 0 14px;font-size:13px;color:#444;line-height:1.5;">A one-time code will be emailed to <strong id="maskedEmail">the authorized address</strong>.</p>
-      <button type="button" class="primary" id="sendOtpBtn">Send login code</button>
-      <div class="msg" id="sendMsg"></div>
-    </div>
-    <div id="stepVerify" class="step">
-      <label for="otpInput">Enter 6-digit code</label>
-      <input id="otpInput" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
-      <button type="button" class="primary" id="verifyOtpBtn">Verify and continue</button>
-      <button type="button" class="secondary" id="resendOtpBtn">Send a new code</button>
-      <div class="msg" id="verifyMsg"></div>
-    </div>
+    <p class="hint">Open <strong>Microsoft Authenticator</strong> for <strong id="maskedEmail">your account</strong> and enter the current 6-digit code.</p>
+    <label for="otpInput">Authenticator code</label>
+    <input id="otpInput" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" autofocus>
+    <button type="button" class="primary" id="verifyOtpBtn">Verify and continue</button>
+    <div class="msg" id="verifyMsg"></div>
   </div>
 </div>
 <script>
@@ -58,13 +48,8 @@ function fetchJson(url, options){
   });
 }
 
-function showStep(name){
-  document.getElementById('stepSend').classList.toggle('active', name === 'send');
-  document.getElementById('stepVerify').classList.toggle('active', name === 'verify');
-}
-
-function setMsg(id, text, kind){
-  var el = document.getElementById(id);
+function setMsg(text, kind){
+  var el = document.getElementById('verifyMsg');
   el.textContent = text || '';
   el.className = 'msg' + (kind ? ' ' + kind : '');
 }
@@ -80,29 +65,12 @@ fetchJson(API_BASE + '/api/auth/session').then(function(result){
   }
   if(result.data.email) document.getElementById('maskedEmail').textContent = result.data.email;
 }).catch(function(){
-  setMsg('sendMsg', 'Could not reach auth service.', 'err');
+  setMsg('Could not reach auth service.', 'err');
 });
 
-document.getElementById('sendOtpBtn').onclick = function(){
-  setMsg('sendMsg', 'Sending code...', '');
-  fetchJson(API_BASE + '/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-    .then(function(result){
-      if(!result.ok || !result.data.ok) throw new Error(result.data.error || 'Could not send code');
-      setMsg('sendMsg', 'Code sent. Check your inbox.', 'ok');
-      showStep('verify');
-      document.getElementById('otpInput').focus();
-    })
-    .catch(function(err){ setMsg('sendMsg', err.message || String(err), 'err'); });
-};
-
-document.getElementById('resendOtpBtn').onclick = function(){
-  showStep('send');
-  document.getElementById('sendOtpBtn').click();
-};
-
-document.getElementById('verifyOtpBtn').onclick = function(){
+function verify(){
   var code = String(document.getElementById('otpInput').value || '').trim();
-  setMsg('verifyMsg', 'Verifying...', '');
+  setMsg('Verifying...', '');
   fetchJson(API_BASE + '/api/auth/verify-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -110,11 +78,12 @@ document.getElementById('verifyOtpBtn').onclick = function(){
   }).then(function(result){
     if(!result.ok || !result.data.ok) throw new Error(result.data.error || 'Verification failed');
     window.location.replace(returnUrl);
-  }).catch(function(err){ setMsg('verifyMsg', err.message || String(err), 'err'); });
-};
+  }).catch(function(err){ setMsg(err.message || String(err), 'err'); });
+}
 
+document.getElementById('verifyOtpBtn').onclick = verify;
 document.getElementById('otpInput').addEventListener('keydown', function(e){
-  if(e.key === 'Enter') document.getElementById('verifyOtpBtn').click();
+  if(e.key === 'Enter') verify();
 });
 </script>
 </body>
