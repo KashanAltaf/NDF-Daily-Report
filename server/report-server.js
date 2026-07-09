@@ -8,6 +8,7 @@ var cfg = require('./jira-config');
 var adoCfg = require('./ado-config');
 var adoClient = require('./ado-client');
 var httpUtil = require('./vercel-http');
+var auth = require('./auth');
 
 var ROOT = path.resolve(__dirname, '..');
 var PORT = Number(process.env.REPORT_PORT || 8768);
@@ -54,7 +55,38 @@ var server = http.createServer(async function (req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/auth/session') {
+    httpUtil.sendJson(res, 200, auth.getSessionInfo(req));
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/send-otp') {
+    try {
+      await auth.sendOtp(req, res, httpUtil);
+    } catch (e) {
+      httpUtil.sendJson(res, e.code === 'CONFIG' ? 503 : 502, { ok: false, error: e.message || String(e) });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/verify-otp') {
+    try {
+      var otpRaw = await httpUtil.readRequestBody(req);
+      var otpBody = otpRaw ? JSON.parse(otpRaw) : {};
+      await auth.verifyOtp(req, res, httpUtil, otpBody);
+    } catch (e) {
+      httpUtil.sendJson(res, 400, { ok: false, error: e.message || String(e) });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+    auth.logout(req, res, httpUtil);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/playwright/import') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     try {
       var raw = await httpUtil.readRequestBody(req);
       var payload = raw ? JSON.parse(raw) : {};
@@ -66,16 +98,19 @@ var server = http.createServer(async function (req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/jira/health') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     httpUtil.sendJson(res, 200, api.getJiraHealth());
     return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/ado/health') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     httpUtil.sendJson(res, 200, api.getAdoHealth());
     return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/jira/issues') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     try {
       httpUtil.sendJson(res, 200, await api.fetchReportIssues());
     } catch (e) {
@@ -85,6 +120,7 @@ var server = http.createServer(async function (req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/ado/bugs') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     try {
       httpUtil.sendJson(res, 200, await adoClient.fetchReportBugs());
     } catch (e) {
@@ -94,6 +130,7 @@ var server = http.createServer(async function (req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/ado/test-summary') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
     try {
       var startDate = url.searchParams.get('startDate') || adoCfg.localDateString();
       var endDate = url.searchParams.get('endDate') || adoCfg.localDateString();
@@ -119,6 +156,12 @@ server.listen(PORT, function () {
   console.log('ADO bugs: GET http://localhost:' + PORT + '/api/ado/bugs');
   console.log('ADO tests: GET http://localhost:' + PORT + '/api/ado/test-summary');
   console.log('Playwright: POST http://localhost:' + PORT + '/api/playwright/import');
+  if (auth.isAuthEnabled()) {
+    console.log('Auth: OTP login enabled for ' + auth.maskEmail(cfg.JIRA_EMAIL));
+    console.log('Login: http://localhost:' + PORT + '/login.html');
+  } else {
+    console.log('Auth: disabled (set AUTH_SECRET + RESEND_API_KEY or SMTP_* to enable)');
+  }
   if (!cfg.JIRA_EMAIL || !cfg.JIRA_API_TOKEN) {
     console.warn('Warning: JIRA_EMAIL / JIRA_API_TOKEN not set — Jira sync will fail until .env is configured.');
   }

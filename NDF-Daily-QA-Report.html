@@ -26,6 +26,7 @@
   .toolbar button.ado-sync { background:#0078d4; }
   .toolbar button.ado-test-sync { background:#106ebe; }
   .toolbar button.playwright-import { background:#6366f1; }
+  .toolbar button.logout { background:#6b7280; }
   .toolbar button:hover { opacity:.9; }
   .toolbar .hint { font-size:12px; opacity:.85; flex-basis:100%; }
   .toolbar .save-status { font-size:12px; margin-left:auto; white-space:nowrap; }
@@ -341,6 +342,7 @@
   <button class="playwright-import" onclick="openPlaywrightImportModal()">Import Playwright Report</button>
   <button class="alt" onclick="reloadTemplate()">Reload Template</button>
   <button class="alt" onclick="printForPdf()">Print / Save as PDF</button>
+  <button class="logout" id="logoutBtn" onclick="logoutReport()" style="display:none;">Sign out</button>
   <span class="save-status ok" id="saveStatus">Ready</span>
   <span class="hint">Your report <b>auto-saves in this browser</b> as you type. Close the tab and reopen the <b>same page URL</b> to continue. Use <b>Reload Template</b> only to discard your draft and start fresh.</span>
 </div>
@@ -3156,15 +3158,49 @@ function deploymentSetupHelp(){
   return '\n\nCheck Vercel project Settings → Environment Variables (JIRA_EMAIL, JIRA_API_TOKEN, ADO_PAT, etc.) and redeploy.';
 }
 
+function redirectToLogin(){
+  var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.replace('/login.html?return=' + returnUrl);
+}
+
+function ensureAuthenticated(){
+  var base = API_BASE || '';
+  return fetchApiJson(base + '/api/auth/session').then(function(result){
+    if(!result.data || !result.data.authEnabled) return true;
+    if(result.data.authenticated){
+      var logoutBtn = document.getElementById('logoutBtn');
+      if(logoutBtn) logoutBtn.style.display = '';
+      return true;
+    }
+    redirectToLogin();
+    return false;
+  }).catch(function(){
+    return true;
+  });
+}
+
+function logoutReport(){
+  var base = API_BASE || '';
+  fetchApiJson(base + '/api/auth/logout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  }).finally(function(){
+    redirectToLogin();
+  });
+}
+
 function fetchApiJson(url, options){
-  return fetch(url, options || {}).then(function(r){
+  var opts = Object.assign({ credentials: 'same-origin' }, options || {});
+  return fetch(url, opts).then(function(r){
     return r.text().then(function(text){
       var data;
       try { data = text ? JSON.parse(text) : {}; } catch(e){
         var preview = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
         throw new Error('Server returned HTML instead of JSON (' + r.status + '). ' + (preview || 'Empty response'));
       }
-      return { ok: r.ok, data: data };
+      if(r.status === 401 && data && data.authRequired) redirectToLogin();
+      return { ok: r.ok, status: r.status, data: data };
     });
   });
 }
@@ -5366,13 +5402,15 @@ function showToast(msg){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+  detectJiraApiBase();
+  ensureAuthenticated().then(function(allowed){
+  if(!allowed) return;
   try {
   capturePageOneLayoutTemplate();
   try {
     localStorage.removeItem('ndf-qa-report-v3');
     localStorage.removeItem('ndf-qa-report-v3-ts');
   } catch(e){}
-  detectJiraApiBase();
   var restored = loadProgress();
   repairBannerStyles();
   setHeaderDateToToday();
@@ -5512,6 +5550,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
     if(e.key === 'Escape') closeLinkModal();
+  });
   });
 });
 </script>

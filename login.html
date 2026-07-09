@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — NDF Daily QA Report</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:#eef1f6; font-family:Arial, Helvetica, sans-serif; }
+  .card { width:100%; max-width:420px; background:#fff; border-radius:10px; box-shadow:0 8px 28px rgba(22,38,95,.15); overflow:hidden; }
+  .head { background:#16265f; color:#fff; padding:22px 24px; }
+  .head h1 { margin:0; font-size:22px; }
+  .head p { margin:8px 0 0; font-size:13px; color:#dfe5f5; }
+  .body { padding:24px; }
+  label { display:block; font-size:12px; font-weight:700; color:#444; margin-bottom:6px; }
+  input { width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid #c7d2fe; border-radius:6px; font-size:16px; letter-spacing:2px; text-align:center; }
+  button { width:100%; margin-top:14px; padding:11px 14px; border:none; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer; }
+  .primary { background:#16265f; color:#fff; }
+  .secondary { background:#eef2ff; color:#16265f; margin-top:8px; }
+  .msg { margin-top:12px; font-size:12px; color:#555; min-height:18px; }
+  .err { color:#b42318; }
+  .ok { color:#1f8a4c; }
+  .step { display:none; }
+  .step.active { display:block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <h1>NDF Daily QA Report</h1>
+    <p id="loginSubtitle">Secure access required</p>
+  </div>
+  <div class="body">
+    <div id="stepSend" class="step active">
+      <p style="margin:0 0 14px;font-size:13px;color:#444;line-height:1.5;">A one-time code will be emailed to <strong id="maskedEmail">the authorized address</strong>.</p>
+      <button type="button" class="primary" id="sendOtpBtn">Send login code</button>
+      <div class="msg" id="sendMsg"></div>
+    </div>
+    <div id="stepVerify" class="step">
+      <label for="otpInput">Enter 6-digit code</label>
+      <input id="otpInput" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+      <button type="button" class="primary" id="verifyOtpBtn">Verify and continue</button>
+      <button type="button" class="secondary" id="resendOtpBtn">Send a new code</button>
+      <div class="msg" id="verifyMsg"></div>
+    </div>
+  </div>
+</div>
+<script>
+var API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8768' : '';
+var returnUrl = new URLSearchParams(window.location.search).get('return') || '/NDF-Daily-QA-Report.html';
+
+function fetchJson(url, options){
+  return fetch(url, Object.assign({ credentials: 'same-origin' }, options || {})).then(function(r){
+    return r.text().then(function(text){
+      var data;
+      try { data = text ? JSON.parse(text) : {}; } catch(e){ throw new Error('Unexpected server response'); }
+      return { ok: r.ok, data: data };
+    });
+  });
+}
+
+function showStep(name){
+  document.getElementById('stepSend').classList.toggle('active', name === 'send');
+  document.getElementById('stepVerify').classList.toggle('active', name === 'verify');
+}
+
+function setMsg(id, text, kind){
+  var el = document.getElementById(id);
+  el.textContent = text || '';
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+}
+
+fetchJson(API_BASE + '/api/auth/session').then(function(result){
+  if(result.data.authenticated){
+    window.location.replace(returnUrl);
+    return;
+  }
+  if(!result.data.authEnabled){
+    window.location.replace(returnUrl);
+    return;
+  }
+  if(result.data.email) document.getElementById('maskedEmail').textContent = result.data.email;
+}).catch(function(){
+  setMsg('sendMsg', 'Could not reach auth service.', 'err');
+});
+
+document.getElementById('sendOtpBtn').onclick = function(){
+  setMsg('sendMsg', 'Sending code...', '');
+  fetchJson(API_BASE + '/api/auth/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then(function(result){
+      if(!result.ok || !result.data.ok) throw new Error(result.data.error || 'Could not send code');
+      setMsg('sendMsg', 'Code sent. Check your inbox.', 'ok');
+      showStep('verify');
+      document.getElementById('otpInput').focus();
+    })
+    .catch(function(err){ setMsg('sendMsg', err.message || String(err), 'err'); });
+};
+
+document.getElementById('resendOtpBtn').onclick = function(){
+  showStep('send');
+  document.getElementById('sendOtpBtn').click();
+};
+
+document.getElementById('verifyOtpBtn').onclick = function(){
+  var code = String(document.getElementById('otpInput').value || '').trim();
+  setMsg('verifyMsg', 'Verifying...', '');
+  fetchJson(API_BASE + '/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code })
+  }).then(function(result){
+    if(!result.ok || !result.data.ok) throw new Error(result.data.error || 'Verification failed');
+    window.location.replace(returnUrl);
+  }).catch(function(err){ setMsg('verifyMsg', err.message || String(err), 'err'); });
+};
+
+document.getElementById('otpInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') document.getElementById('verifyOtpBtn').click();
+});
+</script>
+</body>
+</html>
