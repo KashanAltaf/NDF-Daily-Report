@@ -1,7 +1,7 @@
 'use strict';
 
-var httpUtil = require('../../server/vercel-http');
-var api = require('../../server/report-api');
+var httpUtil = require('../../../server/vercel-http');
+var api = require('../../../server/report-api');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return httpUtil.handleOptions(res, 'POST, OPTIONS');

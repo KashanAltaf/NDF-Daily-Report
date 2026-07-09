@@ -655,7 +655,7 @@
 <div class="link-modal no-copy" id="playwrightImportModal" onclick="if(event.target===this) closePlaywrightImportModal()">
   <div class="link-modal-box">
     <h3>Import Playwright Report</h3>
-    <p style="margin:0 0 10px;font-size:12px;color:#555;">Upload <strong>playwright-report/index.html</strong> from your Playwright run. Each test is mapped to a row with browser, pass/fail/flaky/skip counts, and run time.</p>
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">Upload <strong>playwright-report/index.html</strong> (Playwright Test Report). It is parsed locally in your browser — no server upload needed.</p>
     <p style="margin:0 0 10px;font-size:12px;color:#555;">You can also upload <strong>report.json</strong> if you generated it with the JSON reporter.</p>
     <label for="playwrightReportFile">Playwright report file</label>
     <input id="playwrightReportFile" type="file" accept=".json,.html,application/json,text/html">
@@ -3903,16 +3903,65 @@ function closePlaywrightImportModal(){
   document.getElementById('playwrightImportModal').classList.remove('open');
 }
 
+function base64ToUint8Array(b64){
+  var clean = String(b64 || '').replace(/\s/g, '');
+  var binary = atob(clean);
+  var bytes = new Uint8Array(binary.length);
+  for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function inflateZipEntrySync(compressed){
+  if(typeof DecompressionStream === 'undefined') return null;
+  return new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+}
+
+function extractReportJsonFromZipBuffer(zipBuf){
+  var off = 0;
+  while(off < zipBuf.length - 30){
+    if(zipBuf[off] !== 0x50 || zipBuf[off + 1] !== 0x4b || zipBuf[off + 2] !== 0x03 || zipBuf[off + 3] !== 0x04) break;
+    var method = zipBuf[off + 8] | (zipBuf[off + 9] << 8);
+    var csize = zipBuf[off + 18] | (zipBuf[off + 19] << 8) | (zipBuf[off + 20] << 16) | (zipBuf[off + 21] << 24);
+    var nlen = zipBuf[off + 26] | (zipBuf[off + 27] << 8);
+    var xlen = zipBuf[off + 28] | (zipBuf[off + 29] << 8);
+    var name = new TextDecoder().decode(zipBuf.subarray(off + 30, off + 30 + nlen));
+    var dataStart = off + 30 + nlen + xlen;
+    var comp = zipBuf.subarray(dataStart, dataStart + csize);
+    if(name === 'report.json'){
+      return { method: method, data: comp };
+    }
+    off = dataStart + csize;
+  }
+  return null;
+}
+
+function parsePlaywrightHtmlReport(text){
+  var html = String(text || '');
+  var templateMatch = html.match(/<template id="playwrightReportBase64">data:application\/zip;base64,([\s\S]*?)<\/template>/i);
+  if(!templateMatch){
+    var scriptMatch = html.match(/<script[^>]*id="playwrightReport"[^>]*>([\s\S]*?)<\/script>/i);
+    if(scriptMatch){
+      try { return Promise.resolve(parsePlaywrightReportJson(JSON.parse(scriptMatch[1]))); } catch(e){}
+    }
+    return Promise.reject(new Error('Could not find Playwright report data in this HTML file. Upload playwright-report/index.html from your test run.'));
+  }
+  var zipBuf = base64ToUint8Array(templateMatch[1]);
+  var entry = extractReportJsonFromZipBuffer(zipBuf);
+  if(!entry) return Promise.reject(new Error('Could not extract report.json from Playwright HTML.'));
+  var finish = function(raw){
+    return parsePlaywrightReportJson(JSON.parse(new TextDecoder().decode(raw)));
+  };
+  if(entry.method === 0) return Promise.resolve(finish(entry.data));
+  if(entry.method !== 8) return Promise.reject(new Error('Unsupported compression in Playwright HTML report.'));
+  var inflated = inflateZipEntrySync(entry.data);
+  if(!inflated) return Promise.reject(new Error('This browser cannot decompress the Playwright HTML report. Try Chrome/Edge, or upload report.json instead.'));
+  return inflated.then(finish);
+}
+
 function parsePlaywrightReportText(text, fileName){
   var name = String(fileName || '').toLowerCase();
-  if(name.endsWith('.html')){
-    var scriptMatch = text.match(/<script[^>]*id="playwrightReport"[^>]*>([\s\S]*?)<\/script>/i);
-    if(scriptMatch){
-      try { return parsePlaywrightReportJson(JSON.parse(scriptMatch[1])); } catch(e){}
-    }
-    throw new Error('HTML report must be parsed via the report server. Ensure the report server is running.');
-  }
-  return parsePlaywrightReportJson(JSON.parse(text));
+  if(name.endsWith('.html')) return parsePlaywrightHtmlReport(text);
+  return Promise.resolve(parsePlaywrightReportJson(JSON.parse(text)));
 }
 
 function importPlaywrightReportViaServer(payload){
@@ -3939,32 +3988,29 @@ function confirmPlaywrightImport(){
   };
   reader.onload = function(){
     var text = String(reader.result || '');
-    var isHtml = String(file.name || '').toLowerCase().endsWith('.html');
     var finish = function(rows){
       var count = applyPlaywrightRowsToTable(rows);
       closePlaywrightImportModal();
       showToast('Imported ' + count + ' automation test row(s).');
       setSaveStatus('ok', 'Playwright report imported');
     };
-    var importViaServer = function(){
-      importPlaywrightReportViaServer({ html: isHtml ? text : undefined, report: text, fileName: file.name })
-        .then(function(result){
-          if(!result.ok || !result.data.ok) throw new Error((result.data && result.data.error) || 'Import failed');
-          finish(result.data.rows || []);
-        })
-        .catch(fail);
-    };
-    if(isHtml){
-      importViaServer();
-      return;
-    }
-    try {
-      var rows = parsePlaywrightReportText(text, file.name);
-      if(rows.length) finish(rows);
-      else fail(new Error('No test results found in report.'));
-    } catch(localErr){
-      importViaServer();
-    }
+    parsePlaywrightReportText(text, file.name)
+      .then(function(rows){
+        if(rows && rows.length) finish(rows);
+        else fail(new Error('No test results found in report.'));
+      })
+      .catch(function(localErr){
+        if(String(file.name || '').toLowerCase().endsWith('.html')){
+          fail(localErr);
+          return;
+        }
+        importPlaywrightReportViaServer({ report: text, fileName: file.name })
+          .then(function(result){
+            if(!result.ok || !result.data.ok) throw new Error((result.data && result.data.error) || localErr.message || 'Import failed');
+            finish(result.data.rows || []);
+          })
+          .catch(fail);
+      });
   };
   reader.onerror = function(){ fail(new Error('Could not read the selected file.')); };
   reader.readAsText(file);
