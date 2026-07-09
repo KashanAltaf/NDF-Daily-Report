@@ -3149,11 +3149,30 @@ function applyJiraPayload(payload){
   scheduleAutoSave();
 }
 
+function deploymentSetupHelp(){
+  if(window.location.protocol === 'file:' || window.location.hostname === 'localhost'){
+    return '\n\n1. Add credentials to .env\n2. Run: npm run report:serve\n3. Open http://localhost:8768/NDF-Daily-QA-Report.html';
+  }
+  return '\n\nCheck Vercel project Settings → Environment Variables (JIRA_EMAIL, JIRA_API_TOKEN, ADO_PAT, etc.) and redeploy.';
+}
+
+function fetchApiJson(url){
+  return fetch(url).then(function(r){
+    return r.text().then(function(text){
+      var data;
+      try { data = text ? JSON.parse(text) : {}; } catch(e){
+        var preview = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        throw new Error('Server returned HTML instead of JSON (' + r.status + '). ' + (preview || 'Empty response'));
+      }
+      return { ok: r.ok, data: data };
+    });
+  });
+}
+
 function syncFromJira(){
   var base = API_BASE || '';
   setSaveStatus('saving', 'Syncing from Jira\u2026');
-  fetch(base + '/api/jira/issues')
-    .then(function(r){ return r.json().then(function(data){ return { ok: r.ok, data: data }; }); })
+  fetchApiJson(base + '/api/jira/issues')
     .then(function(result){
       if(!result.ok || result.data.error){
         throw new Error(result.data.error || 'Jira sync failed');
@@ -3170,8 +3189,7 @@ function syncFromJira(){
     })
     .catch(function(err){
       setSaveStatus('err', 'Jira sync failed');
-      alert('Could not sync from Jira:\n\n' + (err.message || err) +
-        '\n\n1. Add JIRA_EMAIL and JIRA_API_TOKEN to .env\n2. Run: npm run report:serve\n3. Open http://localhost:8768/NDF-Daily-QA-Report.html');
+      alert('Could not sync from Jira:\n\n' + (err.message || err) + deploymentSetupHelp());
     });
 }
 
@@ -3213,8 +3231,7 @@ function applyAdoBugsPayload(payload){
 function syncFromAdoBugs(){
   var base = API_BASE || '';
   setSaveStatus('saving', 'Syncing bugs from Azure DevOps\u2026');
-  fetch(base + '/api/ado/bugs')
-    .then(function(r){ return r.json().then(function(data){ return { ok: r.ok, data: data }; }); })
+  fetchApiJson(base + '/api/ado/bugs')
     .then(function(result){
       if(!result.ok || result.data.error){
         throw new Error(result.data.error || 'Azure DevOps bug sync failed');
@@ -3227,8 +3244,7 @@ function syncFromAdoBugs(){
     })
     .catch(function(err){
       setSaveStatus('err', 'ADO bug sync failed');
-      alert('Could not sync bugs from Azure DevOps:\n\n' + (err.message || err) +
-        '\n\n1. Add ADO_PAT to .env\n2. Run: npm run report:serve\n3. Open http://localhost:8768/NDF-Daily-QA-Report.html');
+      alert('Could not sync bugs from Azure DevOps:\n\n' + (err.message || err) + deploymentSetupHelp());
     });
 }
 
@@ -3362,8 +3378,7 @@ function syncFromAdoTestSummary(startDate){
   var base = API_BASE || '';
   setSaveStatus('saving', 'Syncing test summary from Azure DevOps\u2026');
   var query = '?startDate=' + encodeURIComponent(startDate);
-  fetch(base + '/api/ado/test-summary' + query)
-    .then(function(r){ return r.json().then(function(data){ return { ok: r.ok, data: data }; }); })
+  fetchApiJson(base + '/api/ado/test-summary' + query)
     .then(function(result){
       if(!result.ok || result.data.error){
         throw new Error(result.data.error || 'Azure DevOps test sync failed');
@@ -3375,15 +3390,14 @@ function syncFromAdoTestSummary(startDate){
       var cumulative = (result.data.summary && result.data.summary.cumulativeExecuted) || 0;
       var rangeLabel = (result.data.startDate || startDate) + ' to ' + (result.data.endDate || 'today');
       if(!totalInScope && !cumulative){
-        showToast('No test data returned. Restart the report server (npm run report:serve), hard refresh, then sync again.');
+        showToast('No test data returned. Hard refresh, then sync again.');
       } else {
         showToast('Scope: ' + totalInScope + ' test case(s). Today: ' + executedToday + '. Cycle: ' + cumulative + ' (' + rangeLabel + ').');
       }
     })
     .catch(function(err){
       setSaveStatus('err', 'ADO test sync failed');
-      alert('Could not sync test summary from Azure DevOps:\n\n' + (err.message || err) +
-        '\n\n1. Add ADO_PAT to .env\n2. Run: npm run report:serve\n3. Open http://localhost:8768/NDF-Daily-QA-Report.html');
+      alert('Could not sync test summary from Azure DevOps:\n\n' + (err.message || err) + deploymentSetupHelp());
     });
 }
 
@@ -3903,12 +3917,10 @@ function parsePlaywrightReportText(text, fileName){
 
 function importPlaywrightReportViaServer(payload){
   var base = API_BASE || '';
-  return fetch(base + '/api/playwright/import', {
+  return fetchApiJson(base + '/api/playwright/import', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).then(function(r){
-    return r.json().then(function(data){ return { ok: r.ok, data: data }; });
   });
 }
 

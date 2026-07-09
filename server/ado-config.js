@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const ADO_ORG = (process.env.ADO_ORG || 'verokeinc').trim();
 const ADO_PROJECT = (process.env.ADO_PROJECT || 'Nami-POSWorker-1.0').trim();

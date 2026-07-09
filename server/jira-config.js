@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const JIRA_BASE_URL = (process.env.JIRA_BASE_URL || 'https://namipay-team.atlassian.net').replace(/\/$/, '');
 const JIRA_EMAIL = process.env.JIRA_EMAIL || '';
