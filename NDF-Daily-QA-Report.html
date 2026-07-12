@@ -105,6 +105,19 @@
   #report .repro-steps-cell { white-space:pre-wrap; line-height:1.45; padding:8px 12px !important; }
   #report td.defect-priority-cell,
   #report td.defect-status-cell { background-color:var(--defect-cell-bg, inherit) !important; color:var(--defect-cell-fg, inherit) !important; }
+  #tbl37 {
+    width:100% !important;
+    max-width:100% !important;
+    table-layout:fixed !important;
+    box-sizing:border-box;
+  }
+  #tbl37 td {
+    white-space:normal !important;
+    overflow-wrap:anywhere;
+    word-wrap:break-word;
+    word-break:break-word;
+    vertical-align:top;
+  }
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
   .page-one-scope-host > .scope-panel,
@@ -551,17 +564,17 @@
   <div style="padding:0 4px 6px;margin-top:22px;">
     <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#4a79bf" style="background-color:#4a79bf;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">7</span></td><td style="padding-left:10px;color:#4a79bf;font-weight:800;font-size:16px;white-space:nowrap;">API &amp; Backend Test Log</td></tr></table>
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:11px;border:1px solid #b9cdec;" id="tbl37"><tr style="background:#4a79bf;color:#fff;font-weight:700;text-align:left;">
-      <td style="padding:7px 8px;border:1px solid #b9cdec;">Endpoint</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;width:60px;">Method</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;">Scenario</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;">Request Payload (summary)</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;width:75px;">Expected HTTP Code</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;width:70px;">Actual HTTP Code</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;">Response Body (summary)</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;width:60px;">Result</td>
-      <td style="padding:7px 8px;border:1px solid #b9cdec;width:60px;">Jira Ref</td>
-    </tr><tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">[Add endpoint]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td></tr></table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:11px;border:1px solid #b9cdec;width:100%;max-width:100%;table-layout:fixed;" id="tbl37"><tr style="background:#4a79bf;color:#fff;font-weight:700;text-align:left;">
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:18%;">Endpoint</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:55px;">Method</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:14%;">Scenario</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:22%;">Request Payload (summary)</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:70px;">Expected HTTP Code</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:65px;">Actual HTTP Code</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:18%;">Response Body (summary)</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:55px;">Result</td>
+      <td style="padding:7px 8px;border:1px solid #b9cdec;width:55px;">Jira Ref</td>
+    </tr><tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">[Add endpoint]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td></tr></table>
   <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tbl37')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tbl37')">− Remove row</button></div>
 
 </div>
@@ -1506,6 +1519,8 @@ function getExportPrintStyles(){
     '.page-one-print-col{display:inline-block!important;width:49%!important;vertical-align:top!important;font-size:10px!important;box-sizing:border-box!important;}',
     '.page-one-print-gap{display:inline-block!important;width:2%!important;vertical-align:top!important;font-size:10px!important;}',
     '#tblExecSummary,#tbl33{width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;table-layout:fixed!important;}',
+    '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
+    '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary tr,#tbl33 tr{height:auto!important;}',
     '#tblExecSummary td,#tblExecSummary th,#tbl33 td:first-child{height:auto!important;vertical-align:top!important;line-height:1.25!important;}',
     '#tbl33 td.pdf-cell-min{vertical-align:middle!important;line-height:1!important;padding-top:2px!important;padding-bottom:2px!important;}',
@@ -1549,6 +1564,8 @@ function getOutlookExportStyles(){
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
     '#tblExecSummary{margin-bottom:0!important;}',
     '#tbl33{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
+    '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
+    '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.report-two-col{width:100%!important;}',
     '.report-two-col td{vertical-align:top!important;}'
