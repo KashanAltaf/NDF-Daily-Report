@@ -3,7 +3,7 @@
 var crypto = require('crypto');
 var { authenticator } = require('otplib');
 
-var SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+var SESSION_TTL_MS = 60 * 60 * 1000;
 var SESSION_COOKIE = 'qa_session';
 var TOTP_ISSUER = 'NDF Daily QA Report';
 
