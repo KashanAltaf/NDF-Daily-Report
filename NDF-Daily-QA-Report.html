@@ -196,6 +196,7 @@
     min-height:0;
     width:100%;
     max-width:100%;
+    min-width:100%;
   }
   .blockers-header {
     background:linear-gradient(90deg,#991b1b 0%,#dc2626 55%,#ef4444 100%);
@@ -459,7 +460,7 @@
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#e8505b" style="background-color:#e8505b;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">2</span></td><td style="padding-left:10px;color:#e8505b;font-weight:800;font-size:16px;white-space:nowrap;">Bug / Defect Tracker</td></tr></table>
         </div>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:12.5px;border:1px solid #f3b6bc;" id="tbl33">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:12.5px;border:1px solid #f3b6bc;width:100%;max-width:100%;table-layout:fixed;" id="tbl33">
           <tr style="background:#f4818b;color:#fff;font-weight:700;">
             <td style="padding:7px 10px;border:1px solid #f3b6bc;">Category</td>
             <td style="padding:7px 10px;border:1px solid #f3b6bc;width:70px;">Count</td>
@@ -926,15 +927,32 @@ function bakePageOnePanelsForExport(root){
     outer.setAttribute('data-export-panel', 'table');
     if(panel.id) outer.id = panel.id;
     outer.className = panel.className;
+    var tracker = root.querySelector('#tbl33');
+    var blockersWidthPx = 0;
+    if(isBlockers && tracker){
+      blockersWidthPx = Math.round(tracker.offsetWidth || 0);
+      if(!blockersWidthPx){
+        var liveTracker = document.getElementById('tbl33');
+        blockersWidthPx = Math.round((liveTracker && liveTracker.offsetWidth) || 0);
+      }
+    }
     exportStyleTd(outer, {
       borderCollapse: 'collapse',
-      width: '100%',
+      width: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
+      maxWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
+      minWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
       marginTop: '14px',
       border: isBlockers ? '2px solid #b42318' : (isAutomationModule ? '1px solid #c7d2fe' : '1px solid #e7c894'),
       backgroundColor: isBlockers ? '#fff5f5' : (isAutomationModule ? '#eef2ff' : '#fdf3e3'),
       height: panelHeight || '',
-      fontFamily: 'Arial, Helvetica, sans-serif'
+      fontFamily: 'Arial, Helvetica, sans-serif',
+      tableLayout: 'fixed',
+      boxSizing: 'border-box'
     });
+    if(isBlockers && blockersWidthPx){
+      outer.setAttribute('width', String(blockersWidthPx));
+      outer.setAttribute('data-export-width', String(blockersWidthPx));
+    }
 
     if(header){
       var trHead = document.createElement('tr');
@@ -1047,6 +1065,7 @@ function bakePageOnePanelStyles(root){
     el.style.display = '';
     el.style.flex = '';
   });
+  matchBlockersWidthToTracker(root);
   matchExportPanelHeights(root);
 }
 
@@ -1062,6 +1081,29 @@ function matchExportPanelHeights(root){
     tbl.style.height = target + 'px';
     tbl.setAttribute('height', Math.round(target));
   });
+}
+
+function matchBlockersWidthToTracker(root){
+  root = root || document;
+  var tbl33 = root.querySelector ? root.querySelector('#tbl33') : null;
+  var blockers = root.querySelector ? root.querySelector('#blockersPanel, table.blockers-panel') : null;
+  if(!tbl33 || !blockers) return;
+  var w = Math.round(tbl33.offsetWidth || 0);
+  if(!w){
+    var attrW = parseFloat(tbl33.getAttribute('width'));
+    if(attrW && attrW > 0 && String(tbl33.getAttribute('width')).indexOf('%') === -1) w = Math.round(attrW);
+  }
+  tbl33.setAttribute('width', '100%');
+  tbl33.style.width = '100%';
+  tbl33.style.maxWidth = '100%';
+  tbl33.style.tableLayout = 'fixed';
+  blockers.setAttribute('width', w ? String(w) : '100%');
+  blockers.style.width = w ? (w + 'px') : '100%';
+  blockers.style.maxWidth = w ? (w + 'px') : '100%';
+  blockers.style.minWidth = w ? (w + 'px') : '100%';
+  blockers.style.boxSizing = 'border-box';
+  blockers.style.tableLayout = 'fixed';
+  blockers.setAttribute('data-export-width', w ? String(w) : '100%');
 }
 
 function attachCloneForMeasure(clone){
@@ -1209,6 +1251,7 @@ function repairOutlookPageOnePanels(root){
       if(td.style.height && td.querySelector('#scopeTestedToday, #bugTrackerBlockers')) td.style.height = '';
     });
   });
+  matchBlockersWidthToTracker(root);
 }
 
 function finalizeOutlookPageOnePanels(root){
@@ -1393,6 +1436,7 @@ function copyForOutlook(){
   var holder = attachCloneForMeasure(clone);
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
+  matchBlockersWidthToTracker(clone);
   bakeReproStepsForExport(clone, true);
   sanitizeOutlookTableCells(clone);
   var html = wrapOutlookHtml(clone.outerHTML);
@@ -1442,7 +1486,7 @@ function getExportPrintStyles(){
     '.report-footer .footer-label{color:#dfe5f5!important;}',
     '.report-footer .footer-thanks{color:#ffffff!important;}',
     '[data-export-panel="table"]{border-collapse:collapse!important;width:100%!important;}',
-    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;}',
+    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;width:100%!important;max-width:100%!important;min-width:100%!important;table-layout:fixed!important;}',
     '.scope-panel[data-export-panel="table"]{border:1px solid #e7c894!important;background:#fdf3e3!important;width:100%!important;max-width:100%!important;}',
     '.automation-module-panel[data-export-panel="table"]{border:1px solid #c7d2fe!important;background:#eef2ff!important;width:100%!important;max-width:100%!important;}',
     '#scopeTestedToday{background:#fdf3e3!important;color:#222!important;width:100%!important;max-width:100%!important;}',
@@ -1461,7 +1505,7 @@ function getExportPrintStyles(){
     '.page-one-print-cols{width:100%!important;font-size:0!important;margin-top:20px!important;}',
     '.page-one-print-col{display:inline-block!important;width:49%!important;vertical-align:top!important;font-size:10px!important;box-sizing:border-box!important;}',
     '.page-one-print-gap{display:inline-block!important;width:2%!important;vertical-align:top!important;font-size:10px!important;}',
-    '#tblExecSummary,#tbl33{height:auto!important;max-height:none!important;table-layout:auto!important;}',
+    '#tblExecSummary,#tbl33{width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;table-layout:fixed!important;}',
     '#tblExecSummary tr,#tbl33 tr{height:auto!important;}',
     '#tblExecSummary td,#tblExecSummary th,#tbl33 td:first-child{height:auto!important;vertical-align:top!important;line-height:1.25!important;}',
     '#tbl33 td.pdf-cell-min{vertical-align:middle!important;line-height:1!important;padding-top:2px!important;padding-bottom:2px!important;}',
@@ -1489,7 +1533,7 @@ function getOutlookExportStyles(){
     '[data-export-panel="table"] td{mso-line-height-rule:exactly;vertical-align:top!important;}',
     '#scopeTestedToday,#bugTrackerBlockers{mso-line-height-rule:exactly;vertical-align:top!important;}',
     '#scopeTestedToday *,#bugTrackerBlockers *{font-size:inherit;line-height:inherit;font-family:Arial,Helvetica,sans-serif;}',
-    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;}',
+    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;width:100%!important;max-width:100%!important;min-width:100%!important;table-layout:fixed!important;}',
     '.scope-panel[data-export-panel="table"]{border:1px solid #e7c894!important;background:#fdf3e3!important;width:100%!important;max-width:100%!important;}',
     '.automation-module-panel[data-export-panel="table"]{border:1px solid #c7d2fe!important;background:#eef2ff!important;width:100%!important;max-width:100%!important;}',
     '#scopeTestedToday{background:#fdf3e3!important;color:#222!important;border-left:none!important;width:100%!important;max-width:100%!important;}',
@@ -1504,6 +1548,7 @@ function getOutlookExportStyles(){
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
     '#tblExecSummary{margin-bottom:0!important;}',
+    '#tbl33{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.report-two-col{width:100%!important;}',
     '.report-two-col td{vertical-align:top!important;}'
@@ -4653,8 +4698,7 @@ function syncPageOnePanelLayout(){
   fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, blockersEl);
   scopePanel.style.width = '100%';
   scopePanel.style.maxWidth = '100%';
-  blockersPanel.style.width = '100%';
-  blockersPanel.style.maxWidth = '100%';
+  matchBlockersWidthToTracker(document);
   var blockersStyle = {
     fontSize: blockersEl.style.fontSize,
     lineHeight: blockersEl.style.lineHeight
