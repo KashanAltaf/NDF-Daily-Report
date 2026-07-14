@@ -1542,17 +1542,13 @@ function formatHeadingBlocksForTeams(root){
     var heading = document.createElement('p');
     heading.setAttribute('data-teams-section-heading', '1');
     heading.setAttribute('style',
-      'margin:28px 0 10px 0;padding:0;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;' +
-      'font-size:18px;font-weight:700;line-height:1.4;color:' + accent + ';'
+      'margin:28px 0 12px 0;padding:0;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;' +
+      'font-size:24px;font-weight:700;line-height:1.35;color:' + accent + ';'
     );
     heading.innerHTML =
-      '<span style="display:inline-block;background-color:' + accent + ';color:#ffffff;' +
-      'font-size:13px;font-weight:800;padding:4px 9px;margin-right:10px;border-radius:3px;' +
-      'font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;vertical-align:middle;">' +
-      escapeHtmlText(num) +
-      '</span>&nbsp;' +
-      '<span style="color:' + accent + ';font-size:18px;font-weight:800;vertical-align:middle;">' +
-      escapeHtmlText(title) +
+      '<span style="color:' + accent + ';font-size:24px;font-weight:800;' +
+      'font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;">' +
+      escapeHtmlText(num) + '. ' + escapeHtmlText(title) +
       '</span>';
 
     var wrap = titleTable.parentNode;
