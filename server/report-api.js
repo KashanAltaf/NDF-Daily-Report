@@ -182,14 +182,14 @@ async function fetchReportIssues() {
   fixedTodayIssues.forEach(function (issue) { fixedTodayKeys[issue.key] = true; });
   var canceledTodayKeys = {};
   canceledTodayIssues.forEach(function (issue) { canceledTodayKeys[issue.key] = true; });
-  var defectLogIssues = mergeIssuesByKey(openToDoIssues, mergeIssuesByKey(todayDefectIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(canceledTodayIssues, todayIssues))));
+  var buckets = bucketIssues(trackerIssues);
+  var defectLogIssues = mergeIssuesByKey(openToDoIssues, mergeIssuesByKey(todayDefectIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(canceledTodayIssues, mergeIssuesByKey(todayIssues, buckets.retest || [])))));
   defectLogIssues = defectLogIssues.filter(function (issue) {
     if (isFixedStatus(issue.status)) return !!fixedTodayKeys[issue.key];
     var s = normalizeStatusName(issue.status);
     if (s === 'canceled' || s === 'cancelled') return !!canceledTodayKeys[issue.key];
     return true;
   });
-  var buckets = bucketIssues(trackerIssues);
 
   return {
     fetchedAt: new Date().toISOString(),

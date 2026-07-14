@@ -2845,11 +2845,11 @@ function formatAdoStatusLabel(status){
   var s = String(status || '').trim().toLowerCase();
   if(s === 'new') return 'Open';
   if(s === 'closed' || s === 'resolved') return 'Fixed';
-  if(s === 'active' || s === 'reopened') return 'In retest';
+  if(s === 'active' || s === 'reopened') return 'Open';
   if(s === 'rejected') return 'Rejected';
   if(s === 'open' || /^to[\s-]?do$/.test(s) || s === 'proposed') return 'Open';
   if(s === 'fixed' || s === 'done' || s === 'completed') return 'Fixed';
-  if(/test|retest|verify|verification|uat/.test(s)) return 'In retest';
+  if(/test|retest|verify|verification|uat/.test(s)) return 'Open';
   return String(status || '').trim() || '\u2014';
 }
 
@@ -2862,7 +2862,7 @@ function formatStatusLabel(status, issue){
   if(s === 'canceled' || s === 'cancelled' || /^cancel(?:ed|led)?$/i.test(String(status || '').trim())) return 'Canceled';
   if(s === 'fixed' || /^fixed$/i.test(String(status || '').trim())) return 'Fixed';
   if(s === 'open' || /^open$/i.test(String(status || '').trim())) return 'Open';
-  if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'In retest';
+  if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'Open';
   var label = String(status || '').trim();
   if(/^to[\s-]?do$/i.test(label)) return 'Open';
   if(/^bug\s*\/\s*issue$/i.test(label)) return 'Open';
@@ -2912,6 +2912,7 @@ function isAdoDefectLogEligible(issue){
   if(isIssueCreatedToday(issue)) return true;
   var bucket = bucketAdoIssue(issue);
   if(bucket === 'open') return true;
+  if(bucket === 'retest') return true;
   if(bucket === 'fixed') return isIssueFixedToday(issue);
   return false;
 }
@@ -2924,6 +2925,7 @@ function isDefectLogEligible(issue){
   if(s === 'improvement' || s === 'uatprapproval') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
   if(isOpenJiraStatusName(s)) return true;
+  if(s === 'uattesting') return true;
   if(s === 'createprdpr') return isIssueFixedToday(issue);
   return false;
 }
@@ -3553,7 +3555,7 @@ function applyJiraPayload(payload){
   openIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   canceledTodayIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   regressionIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
-  var defectCandidates = mergeIssueArrays(defectLogIssues, fixedTodayIssues, openIssues, canceledTodayIssues);
+  var defectCandidates = mergeIssueArrays(defectLogIssues, fixedTodayIssues, openIssues, canceledTodayIssues, trackerIssues);
   var defectMap = mergeIssuesWithPersistent(defectCandidates, 'jira', freshByKey);
   Object.keys(defectMap).forEach(function(key){
     if(!isReportExcludedJiraIssue(defectMap[key])) trackerMap[key] = defectMap[key];
@@ -3677,7 +3679,7 @@ function applyAdoBugsPayload(payload){
   var trackerMap = {};
   trackerIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   todayIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
-  var defectCandidates = mergeIssueArrays(defectLogIssues, todayIssues);
+  var defectCandidates = mergeIssueArrays(defectLogIssues, todayIssues, trackerIssues);
   var defectMap = mergeIssuesWithPersistent(defectCandidates, 'ado');
   Object.keys(defectMap).forEach(function(key){ trackerMap[key] = defectMap[key]; });
   lastAdoIssueMap = trackerMap;

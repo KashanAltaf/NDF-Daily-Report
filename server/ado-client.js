@@ -187,8 +187,8 @@ async function fetchReportBugs() {
   var openNewIssues = await fetchBugsByWiql(cfg.openBugsWiql());
   var todayDefectIssues = await fetchBugsByWiql(cfg.todayDefectLogWiql());
   var trackerIssues = await fetchBugsByWiql(cfg.activeBugsWiql());
-  var defectLogIssues = mergeIssuesByKey(openNewIssues, todayDefectIssues);
   var buckets = bucketIssues(trackerIssues);
+  var defectLogIssues = mergeIssuesByKey(openNewIssues, mergeIssuesByKey(todayDefectIssues, buckets.retest || []));
 
   return {
     fetchedAt: new Date().toISOString(),
