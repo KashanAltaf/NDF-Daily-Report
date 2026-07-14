@@ -383,6 +383,19 @@
 </div>
 </template>
 
+<template id="salesPortalEnhancementsSectionTemplate">
+<div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+  <div style="padding:0 4px 6px;margin-top:22px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#7c3aed" style="background-color:#7c3aed;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">7</span></td><td style="padding-left:10px;color:#7c3aed;font-weight:800;font-size:16px;white-space:nowrap;">Sales Portal Enhancements</td></tr></table>
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:11px;border:1px solid #d8b4fe;" id="tblSalesPortalEnhancements">
+    <tr style="background:#9333ea;color:#fff;font-weight:700;text-align:left;"><td id="salesPortalEnhancementsIssueIdHeader" style="padding:7px 7px;border:1px solid #d8b4fe;">Jira ID</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">PR</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Module</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Severity</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Priority</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Title</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Repro Steps</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Status</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Assigned Dev</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Timestamp</td></tr>
+    <tr style="background:#f5f3ff;"><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[Add row per sales portal enhancement]</td><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[PR-#]</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[DD-MMM-YYYY]</td></tr>
+  </table>
+  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblSalesPortalEnhancements')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblSalesPortalEnhancements')">− Remove row</button></div>
+</div>
+</template>
+
 <template id="automationSectionTemplate">
 <div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
   <div style="padding:0 4px 6px;margin-top:22px;">
@@ -557,6 +570,18 @@
     <tr style="background:#f5f3ff;"><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[Add row per enhancement]</td><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[PR-#]</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[DD-MMM-YYYY]</td></tr>
   </table>
   <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblEnhancements')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblEnhancements')">− Remove row</button></div>
+
+</div>
+
+<div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>  <!-- ============ SALES PORTAL ENHANCEMENTS ============ -->
+  <div style="padding:0 4px 6px;margin-top:22px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#7c3aed" style="background-color:#7c3aed;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">7</span></td><td style="padding-left:10px;color:#7c3aed;font-weight:800;font-size:16px;white-space:nowrap;">Sales Portal Enhancements</td></tr></table>
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:11px;border:1px solid #d8b4fe;" id="tblSalesPortalEnhancements">
+    <tr style="background:#9333ea;color:#fff;font-weight:700;text-align:left;"><td id="salesPortalEnhancementsIssueIdHeader" style="padding:7px 7px;border:1px solid #d8b4fe;">Jira ID</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">PR</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Module</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Severity</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Priority</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Title</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Repro Steps</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Status</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Assigned Dev</td><td style="padding:7px 7px;border:1px solid #d8b4fe;">Timestamp</td></tr>
+    <tr style="background:#f5f3ff;"><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[Add row per sales portal enhancement]</td><td class="e jira-link" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[PR-#]</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 7px;border:1px solid #d8b4fe;">[DD-MMM-YYYY]</td></tr>
+  </table>
+  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblSalesPortalEnhancements')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblSalesPortalEnhancements')">− Remove row</button></div>
 
 </div>
 
@@ -872,7 +897,7 @@ function prepareReportCloneForExport(){
 
 function bakeDefectCellColorsForExport(root){
   if(!root) return;
-  ['tbl36', 'tblEnhancements'].forEach(function(tableId){
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
     var liveTbl = document.getElementById(tableId);
     var tbl = root.querySelector('#' + tableId);
     if(!tbl) return;
@@ -1703,7 +1728,7 @@ function addRow(tableId){
     c.style.color = '';
     c.innerHTML = '&nbsp;';
   });
-  if((tableId === 'tbl36' || tableId === 'tblEnhancements') && clone.cells[0]){
+  if((tableId === 'tbl36' || tableId === 'tblEnhancements' || tableId === 'tblSalesPortalEnhancements') && clone.cells[0]){
     clone.cells[0].classList.add('jira-link');
     if(clone.cells[1]) clone.cells[1].classList.add('jira-link');
     if(clone.cells[6]){
@@ -1736,7 +1761,7 @@ function getSelectedTableRow(tableId){
 
 function isPlaceholderRow(row){
   var text = (row.textContent || '').replace(/\u00a0/g, ' ').trim();
-  return /\[Add row|\[Add service|\[Add endpoint|\[Add role|\[Add rows per field|\[Add row per defect|\[Add automation test case|\[Add module|\[Add test case/i.test(text);
+  return /\[Add row|\[Add service|\[Add endpoint|\[Add role|\[Add rows per field|\[Add row per defect|\[Add row per enhancement|\[Add row per sales portal enhancement|\[Add automation test case|\[Add module|\[Add test case/i.test(text);
 }
 
 function isRemovableDataRow(table, row){
@@ -2237,7 +2262,7 @@ function removeLink(){
 }
 
 function initJiraLinks(){
-  ['tbl36', 'tblEnhancements'].forEach(function(tableId){
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
     var tbl = document.getElementById(tableId);
     if(!tbl) return;
     var rows = tbl.querySelectorAll('tr');
@@ -2294,6 +2319,7 @@ var API_BASE = '';
 var JIRA_API_BASE = '';
 var syncingDefectLog = false;
 var syncingEnhancements = false;
+var syncingSalesPortalEnhancements = false;
 var syncDefectTimer = null;
 var lastJiraIssueMap = {};
 var lastAdoIssueMap = {};
@@ -2365,6 +2391,16 @@ function isEnhancementEligibleIssue(issue){
   if(s === 'todo' && type === 'task') return true;
   if(s === 'createprdpr' && type === 'task') return isIssueFixedToday(issue);
   return false;
+}
+
+function getIssueModuleName(issue){
+  if(!issue) return '';
+  if(issue.module) return String(issue.module).trim();
+  return String((parseSummaryModule(issue.summary || '').module) || '').trim();
+}
+
+function isSalesPortalModule(issue){
+  return getIssueModuleName(issue).toLowerCase() === 'sales portal';
 }
 
 function isReportExcludedJiraIssue(issue){
@@ -2813,7 +2849,7 @@ function bakeReproStepsCellForExport(cell, sourceCell, outlookMode){
     var borderVal = borderMatch ? borderMatch[1].trim() : '';
     if(!borderVal){
       var tableEl = cell.closest ? cell.closest('table') : null;
-      var borderColor = (tableEl && tableEl.id === 'tblEnhancements') ? '#d8b4fe' : '#f3b6bc';
+      var borderColor = (tableEl && (tableEl.id === 'tblEnhancements' || tableEl.id === 'tblSalesPortalEnhancements')) ? '#d8b4fe' : '#f3b6bc';
       borderVal = '1px solid ' + borderColor;
     }
     var styleMap = {
@@ -2841,7 +2877,7 @@ function bakeReproStepsCellForExport(cell, sourceCell, outlookMode){
 
 function bakeReproStepsForExport(root, outlookMode){
   if(!root) return;
-  ['tbl36', 'tblEnhancements'].forEach(function(tableId){
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
     var liveTbl = document.getElementById(tableId);
     var tbl = root.querySelector('#' + tableId);
     if(!tbl) return;
@@ -2872,7 +2908,7 @@ function isReproStepsCell(cell){
   if(cell.classList && cell.classList.contains('repro-steps-cell')) return true;
   var row = cell.parentElement;
   var table = row && row.closest ? row.closest('table') : null;
-  if(!table || (table.id !== 'tbl36' && table.id !== 'tblEnhancements')) return false;
+  if(!table || (table.id !== 'tbl36' && table.id !== 'tblEnhancements' && table.id !== 'tblSalesPortalEnhancements')) return false;
   var rows = table.querySelectorAll('tr');
   if(!row || row === rows[0]) return false;
   return row.cells[6] === cell;
@@ -2880,7 +2916,7 @@ function isReproStepsCell(cell){
 
 function getDefectLogTableForCell(cell){
   var table = cell && cell.closest ? cell.closest('table') : null;
-  if(!table || (table.id !== 'tbl36' && table.id !== 'tblEnhancements')) return null;
+  if(!table || (table.id !== 'tbl36' && table.id !== 'tblEnhancements' && table.id !== 'tblSalesPortalEnhancements')) return null;
   return table;
 }
 
@@ -3117,6 +3153,7 @@ function syncEnhancementsFromIssues(issues){
     (issues || []).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
       if(!isEnhancementEligibleIssue(iss)) return;
+      if(isSalesPortalModule(iss)) return;
       stripe = !stripe;
       var newRow = createSyncedDefectRow(issueToEntry(iss, 'other'), stripe ? 'background:#f5f3ff;' : '');
       newRow.setAttribute('data-enhancement-sync', 'true');
@@ -3126,6 +3163,36 @@ function syncEnhancementsFromIssues(issues){
     });
   } finally {
     syncingEnhancements = false;
+  }
+}
+
+function syncSalesPortalEnhancementsFromIssues(issues){
+  if(!document.getElementById('tblSalesPortalEnhancements')) repairSalesPortalEnhancementsSection();
+  var tbl = document.getElementById('tblSalesPortalEnhancements');
+  if(!tbl || syncingSalesPortalEnhancements) return;
+  syncingSalesPortalEnhancements = true;
+  try {
+    var rows = tbl.querySelectorAll('tr');
+    if(rows.length < 2) return;
+    for(var i = 1; i < rows.length - 1; i++){
+      if(rows[i].getAttribute('data-enhancement-sync') === 'true') rows[i].remove();
+    }
+    rows = tbl.querySelectorAll('tr');
+    var placeholderRow = rows[rows.length - 1];
+    var stripe = false;
+    (issues || []).forEach(function(iss){
+      if(!iss || (iss.source || 'jira') !== 'jira') return;
+      if(!isEnhancementEligibleIssue(iss)) return;
+      if(!isSalesPortalModule(iss)) return;
+      stripe = !stripe;
+      var newRow = createSyncedDefectRow(issueToEntry(iss, 'other'), stripe ? 'background:#f5f3ff;' : '');
+      newRow.setAttribute('data-enhancement-sync', 'true');
+      newRow.setAttribute('data-issue-sync-source', 'jira');
+      updateDefectRowFromIssue(newRow, iss, 'other');
+      placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
+    });
+  } finally {
+    syncingSalesPortalEnhancements = false;
   }
 }
 
@@ -3205,11 +3272,12 @@ function applyJiraPayload(payload){
   syncDefectLogFromIssueMap(defectMap, 'jira');
   purgeStaleDefectLogRows();
   dedupeDefectLogRows();
-  if(repairEnhancementsSection()){
+  if(repairEnhancementsSection() || repairSalesPortalEnhancementsSection()){
     initOutlookSections();
     initJiraLinks();
   }
   syncEnhancementsFromIssues(payload.enhancementIssues || []);
+  syncSalesPortalEnhancementsFromIssues(payload.enhancementIssues || []);
   scheduleAutoSave();
 }
 
@@ -3580,6 +3648,17 @@ function repairEnhancementsSection(){
   var defectSection = defectTbl.closest('.report-section');
   if(!defectSection) return false;
   defectSection.insertAdjacentElement('afterend', tpl.content.firstElementChild.cloneNode(true));
+  return true;
+}
+
+function repairSalesPortalEnhancementsSection(){
+  if(document.getElementById('tblSalesPortalEnhancements')) return false;
+  var tpl = document.getElementById('salesPortalEnhancementsSectionTemplate');
+  var enhTbl = document.getElementById('tblEnhancements');
+  if(!tpl || !enhTbl || !tpl.content || !tpl.content.firstElementChild) return false;
+  var enhSection = enhTbl.closest('.report-section');
+  if(!enhSection) return false;
+  enhSection.insertAdjacentElement('afterend', tpl.content.firstElementChild.cloneNode(true));
   return true;
 }
 
@@ -5484,6 +5563,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var pageOneRepaired = repairPageOneLayout();
   var layoutRepaired = repairCorruptedReportIfNeeded();
   var addedEnhancements = repairEnhancementsSection();
+  var addedSalesPortalEnhancements = repairSalesPortalEnhancementsSection();
   repairReportContainment();
   var addedAutomation = repairAutomationSection();
   repairModuleCoveredPanel();
@@ -5519,10 +5599,11 @@ document.addEventListener('DOMContentLoaded', function(){
     } else {
       if(pageOneRepaired) restoreMsg += ' Scope panel restored.';
       if(addedEnhancements) restoreMsg += ' Enhancements section added — Sync from Jira to populate.';
+      if(addedSalesPortalEnhancements) restoreMsg += ' Sales Portal Enhancements section added — Sync from Jira to populate.';
       if(addedAutomation) restoreMsg += ' Automation Testing section added.';
     }
     showToast(restoreMsg);
-    if(!isReportStructureBroken() && (pageOneRepaired || addedEnhancements || addedAutomation || layoutRepaired)) scheduleAutoSave();
+    if(!isReportStructureBroken() && (pageOneRepaired || addedEnhancements || addedSalesPortalEnhancements || addedAutomation || layoutRepaired)) scheduleAutoSave();
   } else {
     setSaveStatus('ok', 'Ready — edits auto-save');
     if(pageOneRepaired) scheduleAutoSave();
