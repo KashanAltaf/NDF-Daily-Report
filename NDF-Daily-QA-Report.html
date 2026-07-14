@@ -3199,6 +3199,7 @@ function syncSalesPortalEnhancementsFromIssues(issues){
   } finally {
     syncingSalesPortalEnhancements = false;
   }
+  normalizeSalesPortalEnhancementsStyles();
 }
 
 function syncDefectLogFromIssueMap(issueMap, syncSource){
@@ -3664,6 +3665,67 @@ function repairSalesPortalEnhancementsSection(){
   var enhSection = enhTbl.closest('.report-section');
   if(!enhSection) return false;
   enhSection.insertAdjacentElement('afterend', tpl.content.firstElementChild.cloneNode(true));
+  return true;
+}
+
+function normalizeSalesPortalEnhancementsStyles(){
+  var tbl = document.getElementById('tblSalesPortalEnhancements');
+  if(!tbl) return false;
+  var section = tbl.closest('.report-section');
+  if(!section) return false;
+
+  function remapPurple(styleText){
+    return String(styleText || '')
+      .replace(/#7c3aed/gi, '#0f766e')
+      .replace(/#9333ea/gi, '#0d9488')
+      .replace(/#d8b4fe/gi, '#99f6e4')
+      .replace(/#f5f3ff/gi, '#f0fdfa');
+  }
+
+  section.querySelectorAll('[style]').forEach(function(el){
+    var next = remapPurple(el.getAttribute('style'));
+    if(next !== el.getAttribute('style')) el.setAttribute('style', next);
+  });
+  section.querySelectorAll('[bgcolor]').forEach(function(el){
+    var bg = String(el.getAttribute('bgcolor') || '');
+    if(/^#7c3aed$/i.test(bg)) el.setAttribute('bgcolor', '#0f766e');
+    else if(/^#9333ea$/i.test(bg)) el.setAttribute('bgcolor', '#0d9488');
+  });
+
+  var titleCells = section.querySelectorAll('div[style*="padding:0 4px 6px"] td');
+  if(titleCells[0]){
+    titleCells[0].setAttribute('bgcolor', '#0f766e');
+    titleCells[0].style.backgroundColor = '#0f766e';
+    titleCells[0].style.color = '#ffffff';
+  }
+  if(titleCells[1]){
+    titleCells[1].style.color = '#0f766e';
+    titleCells[1].style.fontWeight = '800';
+  }
+
+  tbl.style.border = '1px solid #99f6e4';
+  var header = tbl.rows[0];
+  if(header){
+    header.style.background = '#0d9488';
+    header.style.color = '#fff';
+    [].forEach.call(header.cells, function(td){
+      td.style.background = '#0d9488';
+      td.style.color = '#fff';
+      td.style.border = '1px solid #99f6e4';
+    });
+  }
+  for(var r = 1; r < tbl.rows.length; r++){
+    var row = tbl.rows[r];
+    var rowStyle = remapPurple(row.getAttribute('style') || '');
+    if(/background\s*:\s*#f0fdfa/i.test(rowStyle) || /background\s*:\s*#f5f3ff/i.test(row.getAttribute('style') || '')){
+      row.setAttribute('style', 'background:#f0fdfa;');
+    } else if(rowStyle){
+      row.setAttribute('style', rowStyle);
+    }
+    [].forEach.call(row.cells, function(td){
+      td.style.border = '1px solid #99f6e4';
+    });
+  }
   return true;
 }
 
@@ -5569,6 +5631,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var layoutRepaired = repairCorruptedReportIfNeeded();
   var addedEnhancements = repairEnhancementsSection();
   var addedSalesPortalEnhancements = repairSalesPortalEnhancementsSection();
+  normalizeSalesPortalEnhancementsStyles();
   repairReportContainment();
   var addedAutomation = repairAutomationSection();
   repairModuleCoveredPanel();
