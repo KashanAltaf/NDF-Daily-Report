@@ -2686,7 +2686,8 @@ function getIssueModuleName(issue){
 }
 
 function isSalesPortalModule(issue){
-  return getIssueModuleName(issue).toLowerCase() === 'sales portal';
+  var moduleName = getIssueModuleName(issue).toLowerCase();
+  return moduleName === 'sales portal' || moduleName === 'kyc';
 }
 
 function isReportExcludedJiraIssue(issue){
