@@ -26,6 +26,7 @@
   .toolbar button.ado-sync { background:#0078d4; }
   .toolbar button.ado-test-sync { background:#106ebe; }
   .toolbar button.playwright-import { background:#6366f1; }
+  .toolbar button.teams-copy { background:#6264A7; }
   .toolbar button.logout { background:#6b7280; }
   .toolbar button:hover { opacity:.9; }
   .toolbar .hint { font-size:12px; opacity:.85; flex-basis:100%; }
@@ -348,6 +349,7 @@
 <div class="toolbar no-copy">
   <h2>NDF Daily QA Report</h2>
   <button onclick="copyForOutlook()">Copy for Outlook</button>
+  <button class="teams-copy" onclick="copyForTeams()">Copy for Teams</button>
   <button class="save" onclick="saveProgress(false)">Save Now</button>
   <button class="link-btn" onmousedown="prepareLinkModal(event)" onclick="openLinkModal()">Insert Link</button>
   <button class="jira-sync" onclick="syncFromJira()">Sync from Jira</button>
@@ -1488,6 +1490,200 @@ function copyForOutlook(){
     document.body.removeChild(holder);
     if(ok) showToast('Copied! Now paste (Ctrl+V) into a new Outlook email.');
     else showToast('Copy failed — try Print / Save as PDF instead.');
+  });
+}
+
+function wrapTeamsHtml(bodyHtml){
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '</head><body style="margin:0;padding:12px;background:#ffffff;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;font-size:12px;color:#242424;line-height:1.4;">' +
+    bodyHtml +
+    '</body></html>';
+}
+
+function teamsColorFromStyle(el, prop){
+  if(!el) return '';
+  var inline = (el.getAttribute('style') || '').match(new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)', 'i'));
+  if(inline && inline[1]){
+    var hex = rgbToHex(inline[1].trim());
+    if(hex) return hex;
+    if(String(inline[1]).trim().charAt(0) === '#') return String(inline[1]).trim();
+  }
+  if(prop === 'background-color' || prop === 'background'){
+    var bg = el.getAttribute('bgcolor');
+    if(bg) return bg.charAt(0) === '#' ? bg : ('#' + bg);
+  }
+  try {
+    var computed = window.getComputedStyle(el);
+    var val = computed && computed.getPropertyValue(prop === 'background' ? 'background-color' : prop);
+    return rgbToHex(val) || '';
+  } catch(e){
+    return '';
+  }
+}
+
+function formatHeadingBlocksForTeams(root){
+  root.querySelectorAll('.sec-num').forEach(function(numEl){
+    var titleTable = numEl.closest('table');
+    if(!titleTable) return;
+    var cells = titleTable.querySelectorAll('td');
+    if(cells.length < 2) return;
+    var badgeCell = cells[0];
+    var titleCell = cells[1];
+    var num = (numEl.textContent || '').trim();
+    var title = (titleCell.textContent || '').replace(/\s+/g, ' ').trim();
+    if(!title) return;
+    var accent = teamsColorFromStyle(titleCell, 'color') ||
+      teamsColorFromStyle(badgeCell, 'background-color') ||
+      badgeCell.getAttribute('bgcolor') ||
+      '#16265f';
+    if(accent && accent.charAt(0) !== '#') accent = '#' + accent;
+
+    var heading = document.createElement('p');
+    heading.setAttribute('style',
+      'margin:20px 0 8px 0;padding:0;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;' +
+      'font-size:16px;font-weight:700;line-height:1.35;color:' + accent + ';'
+    );
+    heading.innerHTML =
+      '<span style="display:inline-block;background-color:' + accent + ';color:#ffffff;' +
+      'font-size:12px;font-weight:800;padding:3px 8px;margin-right:8px;border-radius:3px;' +
+      'font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;vertical-align:middle;">' +
+      escapeHtmlText(num) +
+      '</span>' +
+      '<span style="color:' + accent + ';font-size:16px;font-weight:800;vertical-align:middle;">' +
+      escapeHtmlText(title) +
+      '</span>';
+
+    var wrap = titleTable.parentNode;
+    if(wrap && wrap.tagName === 'DIV' && wrap.childNodes.length === 1){
+      wrap.parentNode.replaceChild(heading, wrap);
+    } else {
+      titleTable.parentNode.replaceChild(heading, titleTable);
+    }
+  });
+}
+
+function formatTablesForTeams(root){
+  root.querySelectorAll('table').forEach(function(tbl){
+    if(tbl.classList && (tbl.classList.contains('report-banner') || tbl.classList.contains('report-footer'))) return;
+    if(tbl.querySelector('.sec-num')) return;
+
+    tbl.setAttribute('border', '1');
+    tbl.setAttribute('cellpadding', '6');
+    tbl.setAttribute('cellspacing', '0');
+    tbl.setAttribute('width', tbl.getAttribute('width') || '100%');
+    var borderColor = '#d0d0d0';
+    var borderMatch = (tbl.getAttribute('style') || '').match(/border\s*:\s*[^;]*?(#[0-9a-fA-F]{3,8}|\w+)/i);
+    if(borderMatch && borderMatch[1]) borderColor = borderMatch[1];
+    tbl.setAttribute('bordercolor', borderColor);
+    var style = (tbl.getAttribute('style') || '')
+      .replace(/display\s*:\s*inline-table;?/gi, '');
+    if(!/border-collapse/i.test(style)) style += (style && style.slice(-1) !== ';' ? ';' : '') + 'border-collapse:collapse;';
+    if(!/width\s*:/i.test(style)) style += 'width:100%;';
+    if(!/font-family/i.test(style)) style += "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
+    tbl.setAttribute('style', style);
+
+    tbl.querySelectorAll('tr').forEach(function(tr){
+      [].forEach.call(tr.cells, function(td){
+        var bg = teamsColorFromStyle(td, 'background-color') || td.getAttribute('bgcolor') || '';
+        if(bg && bg.charAt(0) !== '#' && /^[0-9a-fA-F]{3,8}$/.test(bg)) bg = '#' + bg;
+        var fg = teamsColorFromStyle(td, 'color') || '';
+        if(bg){
+          td.setAttribute('bgcolor', bg);
+          td.style.backgroundColor = bg;
+        }
+        if(fg) td.style.color = fg;
+        td.style.border = '1px solid ' + borderColor;
+        td.style.padding = td.style.padding || '6px 8px';
+        td.style.verticalAlign = 'top';
+        td.style.fontFamily = "'Segoe UI',Arial,Helvetica,sans-serif";
+        td.style.fontSize = td.style.fontSize || '12px';
+
+        var isStatusOrPriority = td.classList && (
+          td.classList.contains('defect-status-cell') ||
+          td.classList.contains('defect-priority-cell')
+        );
+        if(isStatusOrPriority && fg){
+          var text = (td.textContent || '').replace(/\u00a0/g, ' ').trim() || '\u2014';
+          if(!td.querySelector('a,img,span[data-teams-status]')){
+            td.innerHTML = '<span data-teams-status="1" style="color:' + fg + ';font-weight:700;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;">' +
+              escapeHtmlText(text) + '</span>';
+          } else {
+            td.querySelectorAll('span').forEach(function(span){
+              span.style.color = fg;
+              span.style.fontWeight = '700';
+            });
+          }
+          td.style.fontWeight = '700';
+          td.style.color = fg;
+        }
+      });
+    });
+  });
+}
+
+function formatBannerForTeams(root){
+  root.querySelectorAll('.report-banner, .report-footer').forEach(function(tbl){
+    tbl.setAttribute('border', '0');
+    tbl.setAttribute('cellpadding', '0');
+    tbl.setAttribute('cellspacing', '0');
+    tbl.setAttribute('width', '100%');
+    tbl.querySelectorAll('td').forEach(function(td){
+      td.setAttribute('bgcolor', '#16265f');
+      td.style.backgroundColor = '#16265f';
+      td.style.color = '#ffffff';
+      td.style.padding = td.style.padding || '12px 16px';
+      td.style.fontFamily = "'Segoe UI',Arial,Helvetica,sans-serif";
+    });
+    tbl.querySelectorAll('.banner-title').forEach(function(el){
+      el.style.color = '#ffffff';
+      el.style.fontSize = '20px';
+      el.style.fontWeight = '800';
+    });
+    tbl.querySelectorAll('.banner-subtitle, .banner-date, .footer-label').forEach(function(el){
+      el.style.color = '#dfe5f5';
+    });
+    tbl.querySelectorAll('.banner-date-value, .footer-thanks, .footer-label span').forEach(function(el){
+      el.style.color = '#ffffff';
+      el.style.fontWeight = '700';
+    });
+  });
+}
+
+function prepareCloneForTeams(clone){
+  formatHeadingBlocksForTeams(clone);
+  formatBannerForTeams(clone);
+  formatTablesForTeams(clone);
+  clone.querySelectorAll('a').forEach(function(a){
+    a.style.color = '#1a5fb4';
+    a.style.textDecoration = 'underline';
+    a.style.fontWeight = '700';
+  });
+  return clone;
+}
+
+function copyForTeams(){
+  syncPageOnePanelLayout();
+  var clone = prepareReportCloneForExport();
+  var holder = attachCloneForMeasure(clone);
+  repairOutlookPageOnePanels(clone);
+  applyLivePageOneFontsToOutlookClone(clone);
+  matchBlockersWidthToTracker(clone);
+  bakeReproStepsForExport(clone, true);
+  bakeDefectCellColorsForExport(clone);
+  sanitizeOutlookTableCells(clone);
+  prepareCloneForTeams(clone);
+  var html = wrapTeamsHtml(clone.outerHTML);
+  var plain = clone.innerText || clone.textContent || '';
+
+  copyHtmlToClipboard(html, plain).then(function(){
+    document.body.removeChild(holder);
+    showToast('Copied! Now paste (Ctrl+V) into Microsoft Teams.');
+  }, function(){
+    var ok = copyForOutlookViaSelection(clone.cloneNode(true));
+    document.body.removeChild(holder);
+    if(ok) showToast('Copied! Now paste (Ctrl+V) into Microsoft Teams.');
+    else showToast('Copy failed — try Copy for Outlook instead.');
   });
 }
 
