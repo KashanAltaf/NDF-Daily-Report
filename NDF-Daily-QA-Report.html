@@ -2740,7 +2740,8 @@ function issueToEntry(issue, source){
     summary: issue.summary || '',
     priority: issue.priority || '',
     assignee: issue.assignee || '',
-    reporter: issue.reporter || ''
+    reporter: issue.reporter || '',
+    issue: issue
   };
 }
 
@@ -3566,6 +3567,7 @@ function applyJiraPayload(payload){
   syncDefectLogFromIssueMap(defectMap, 'jira');
   purgeStaleDefectLogRows();
   dedupeDefectLogRows();
+  scheduleDefectLogSync();
   if(repairEnhancementsSection() || repairSalesPortalEnhancementsSection()){
     initOutlookSections();
     initJiraLinks();
@@ -3685,6 +3687,7 @@ function applyAdoBugsPayload(payload){
   lastAdoIssueMap = trackerMap;
   applySyncDataToTracker(trackerMap, todayIssues, 'ado');
   syncDefectLogFromIssueMap(defectMap, 'ado');
+  scheduleDefectLogSync();
   scheduleAutoSave();
 }
 
@@ -5643,7 +5646,8 @@ function getTrackerSyncEntries(){
         url: entry.url,
         source: source,
         status: rowStatus,
-        statusLabel: formatStatusLabel(rowStatus, meta || entry)
+        statusLabel: formatStatusLabel(rowStatus, meta || entry),
+        issue: meta || null
       });
     });
   });
@@ -5690,7 +5694,7 @@ function createSyncedDefectRow(entry, stripeStyle){
   tr.setAttribute('data-jira-key', entry.key);
   tr.setAttribute('data-issue-sync-source', getIssueSyncSource(entry.key) || '');
   tr.setAttribute('data-tracker-source', entry.source);
-  var meta = getIssueMeta(entry.key);
+  var meta = entry.issue || getIssueMeta(entry.key);
   var pad = 'padding:6px 7px;border:1px solid #f3b6bc;';
   var fields = [
     { kind: 'jira' },
@@ -5728,6 +5732,7 @@ function createSyncedDefectRow(entry, stripeStyle){
     tr.appendChild(td);
   });
   tr.setAttribute('data-jira-status', (meta && meta.status) || entry.status || '');
+  if(meta) updateDefectRowFromIssue(tr, meta, entry.source);
   return tr;
 }
 
@@ -5753,10 +5758,14 @@ function syncDefectLogFromTracker(){
         var rowEligible = rowMeta ? isDefectLogEligible(rowMeta) : isDefectRowEligibleByContent(row);
         if(!rowEligible){ row.remove(); continue; }
         if(key && entryMap[key]){
-          setJiraCellContent(row.cells[0], entryMap[key]);
-          if(row.cells[7]){
-            var syncMeta = getIssueMeta(entryMap[key].key);
-            applyStatusCellStyle(row.cells[7], entryMap[key].status, syncMeta || entryMap[key]);
+          var syncMeta = entryMap[key].issue || getIssueMeta(entryMap[key].key);
+          if(syncMeta){
+            updateDefectRowFromIssue(row, syncMeta, entryMap[key].source);
+          } else {
+            setJiraCellContent(row.cells[0], entryMap[key]);
+            if(row.cells[7]){
+              applyStatusCellStyle(row.cells[7], entryMap[key].status, entryMap[key]);
+            }
           }
         }
       }
@@ -5773,7 +5782,7 @@ function syncDefectLogFromTracker(){
 
     var stripe = false;
     entries.forEach(function(entry){
-      var entryMeta = getIssueMeta(entry.key);
+      var entryMeta = entry.issue || getIssueMeta(entry.key);
       var entryEligible;
       if(entryMeta) entryEligible = isDefectLogEligible(entryMeta);
       else if(isFixedOrCanceledStatusName(entry.status)) entryEligible = false;
