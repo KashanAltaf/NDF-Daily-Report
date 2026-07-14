@@ -203,6 +203,7 @@ async function fetchReportIssues() {
     regressionBugsJql: regressionJqlStr,
     activeBugsJql: activeJqlStr,
     openBugsSince: cfg.OPEN_BUGS_SINCE,
+    enhancementsSince: cfg.ENHANCEMENTS_SINCE,
     total: todayIssues.length,
     todayTotal: todayIssues.length,
     openTotal: openToDoIssues.length,

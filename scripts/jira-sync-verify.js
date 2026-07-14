@@ -46,6 +46,6 @@ function merge(a, b) {
   console.log('Fixed today (Create-PRD-PR):', fixedToday.length, fixedToday.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   console.log('Today defect log query:', todayDefect.length, todayDefect.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   console.log('Defect log total:', defectLog.length);
-  console.log('Enhancements (Task To Do + Bug/Task IMPROVEMENT, QA reporters since 01-Jan):', enhancements.length, enhancements.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
+  console.log('Enhancements (Task To Do + Bug/Task IMPROVEMENT, QA reporters since ' + cfg.ENHANCEMENTS_SINCE + '):', enhancements.length, enhancements.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   defectLog.forEach(function (i) { console.log(' ', i.key, '|', i.status, '|', i.created.slice(0, 10)); });
 })().catch(function (e) { console.error(e); process.exit(1); });

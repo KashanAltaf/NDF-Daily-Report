@@ -43,6 +43,8 @@ function buildBaseJqlParts() {
 
 const BASE_JQL = buildBaseJqlParts().join(' AND ');
 const OPEN_BUGS_SINCE = process.env.JIRA_OPEN_BUGS_SINCE || '2026-01-01';
+/** Cutoff for Enhancements + Sales Portal Enhancements (defaults to 1 Jan 2026) */
+const ENHANCEMENTS_SINCE = (process.env.JIRA_ENHANCEMENTS_SINCE || '2026-01-01').trim();
 const GITHUB_PR_URL_UAT_FIELD = process.env.JIRA_GITHUB_PR_URL_UAT_FIELD || 'customfield_10649';
 
 /** New bugs raised today — To Do only, created today */
@@ -105,7 +107,7 @@ function enhancementsJql(extra) {
   var parts = [
     'project = ' + JIRA_PROJECT,
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
-    'created >= "' + OPEN_BUGS_SINCE + '"',
+    'created >= "' + ENHANCEMENTS_SINCE + '"',
     '((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
@@ -160,6 +162,7 @@ module.exports = {
   EXCLUDED_STATUSES,
   BASE_JQL,
   OPEN_BUGS_SINCE,
+  ENHANCEMENTS_SINCE,
   GITHUB_PR_URL_UAT_FIELD,
   todayJql,
   openBugsJql,
