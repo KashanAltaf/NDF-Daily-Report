@@ -1540,17 +1540,18 @@ function formatHeadingBlocksForTeams(root){
     if(accent && accent.charAt(0) !== '#') accent = '#' + accent;
 
     var heading = document.createElement('p');
+    heading.setAttribute('data-teams-section-heading', '1');
     heading.setAttribute('style',
-      'margin:20px 0 8px 0;padding:0;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;' +
-      'font-size:16px;font-weight:700;line-height:1.35;color:' + accent + ';'
+      'margin:28px 0 10px 0;padding:0;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;' +
+      'font-size:18px;font-weight:700;line-height:1.4;color:' + accent + ';'
     );
     heading.innerHTML =
       '<span style="display:inline-block;background-color:' + accent + ';color:#ffffff;' +
-      'font-size:12px;font-weight:800;padding:3px 8px;margin-right:8px;border-radius:3px;' +
+      'font-size:13px;font-weight:800;padding:4px 9px;margin-right:10px;border-radius:3px;' +
       'font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;vertical-align:middle;">' +
       escapeHtmlText(num) +
-      '</span>' +
-      '<span style="color:' + accent + ';font-size:16px;font-weight:800;vertical-align:middle;">' +
+      '</span>&nbsp;' +
+      '<span style="color:' + accent + ';font-size:18px;font-weight:800;vertical-align:middle;">' +
       escapeHtmlText(title) +
       '</span>';
 
@@ -1563,10 +1564,62 @@ function formatHeadingBlocksForTeams(root){
   });
 }
 
+function addSectionGapsForTeams(root){
+  root.querySelectorAll('p[data-teams-section-heading="1"]').forEach(function(heading){
+    heading.style.marginTop = '28px';
+    heading.style.marginBottom = '10px';
+  });
+  root.querySelectorAll('table[id^="tbl"], table[data-export-panel="table"]').forEach(function(tbl){
+    if(tbl.classList && (tbl.classList.contains('report-banner') || tbl.classList.contains('report-footer'))) return;
+    var style = tbl.getAttribute('style') || '';
+    if(!/margin-bottom/i.test(style)) style += (style && style.slice(-1) !== ';' ? ';' : '') + 'margin-bottom:24px;';
+    tbl.setAttribute('style', style);
+  });
+}
+
+function formatPanelHeadersForTeams(root){
+  root.querySelectorAll('table[data-export-panel="table"]').forEach(function(tbl){
+    var header = tbl.rows[0] && tbl.rows[0].cells[0];
+    if(!header) return;
+    var label = (header.textContent || '').replace(/\s+/g, ' ').trim();
+    if(!/scope tested|blockers faced|module covered/i.test(label)) return;
+    header.removeAttribute('bgcolor');
+    header.style.backgroundColor = 'transparent';
+    header.style.color = '#242424';
+    header.style.fontWeight = '700';
+    header.style.fontSize = '15px';
+    header.style.padding = '4px 0 8px 0';
+    header.style.border = 'none';
+    header.style.borderBottom = 'none';
+    header.innerHTML = '<span style="color:#242424;font-size:15px;font-weight:700;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;">' +
+      escapeHtmlText(label) + '</span>';
+    tbl.style.border = 'none';
+    tbl.removeAttribute('border');
+    tbl.removeAttribute('bordercolor');
+    tbl.removeAttribute('bgcolor');
+    tbl.style.backgroundColor = 'transparent';
+    for(var r = 1; r < tbl.rows.length; r++){
+      [].forEach.call(tbl.rows[r].cells, function(td){
+        td.removeAttribute('bgcolor');
+        td.style.backgroundColor = 'transparent';
+        td.style.color = '#242424';
+        td.style.border = 'none';
+        td.style.padding = '2px 0';
+      });
+    }
+  });
+}
+
 function formatTablesForTeams(root){
   root.querySelectorAll('table').forEach(function(tbl){
     if(tbl.classList && (tbl.classList.contains('report-banner') || tbl.classList.contains('report-footer'))) return;
     if(tbl.querySelector('.sec-num')) return;
+    if(tbl.getAttribute('data-export-panel') === 'table'){
+      var headerLabel = tbl.rows[0] && tbl.rows[0].cells[0]
+        ? (tbl.rows[0].cells[0].textContent || '').replace(/\s+/g, ' ').trim()
+        : '';
+      if(/scope tested|blockers faced|module covered/i.test(headerLabel)) return;
+    }
 
     tbl.setAttribute('border', '1');
     tbl.setAttribute('cellpadding', '6');
@@ -1581,6 +1634,7 @@ function formatTablesForTeams(root){
     if(!/border-collapse/i.test(style)) style += (style && style.slice(-1) !== ';' ? ';' : '') + 'border-collapse:collapse;';
     if(!/width\s*:/i.test(style)) style += 'width:100%;';
     if(!/font-family/i.test(style)) style += "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
+    if(!/margin-bottom/i.test(style)) style += 'margin-bottom:24px;';
     tbl.setAttribute('style', style);
 
     tbl.querySelectorAll('tr').forEach(function(tr){
@@ -1623,7 +1677,7 @@ function formatTablesForTeams(root){
 }
 
 function formatBannerForTeams(root){
-  root.querySelectorAll('.report-banner, .report-footer').forEach(function(tbl){
+  root.querySelectorAll('.report-banner').forEach(function(tbl){
     tbl.setAttribute('border', '0');
     tbl.setAttribute('cellpadding', '0');
     tbl.setAttribute('cellspacing', '0');
@@ -1640,20 +1694,60 @@ function formatBannerForTeams(root){
       el.style.fontSize = '20px';
       el.style.fontWeight = '800';
     });
-    tbl.querySelectorAll('.banner-subtitle, .banner-date, .footer-label').forEach(function(el){
+    tbl.querySelectorAll('.banner-subtitle, .banner-date').forEach(function(el){
       el.style.color = '#dfe5f5';
     });
-    tbl.querySelectorAll('.banner-date-value, .footer-thanks, .footer-label span').forEach(function(el){
+    tbl.querySelectorAll('.banner-date-value').forEach(function(el){
       el.style.color = '#ffffff';
       el.style.fontWeight = '700';
     });
   });
 }
 
+function formatFooterForTeams(root){
+  var footer = root.querySelector('.report-footer');
+  if(!footer || !footer.parentNode) return;
+
+  var submitted = '';
+  var reviewed = '';
+  footer.querySelectorAll('.footer-label').forEach(function(el){
+    var text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if(/^Submitted By/i.test(text)) submitted = text;
+    else if(/^Reviewed By/i.test(text)) reviewed = text;
+  });
+
+  var block = document.createElement('div');
+  block.setAttribute('data-teams-footer', '1');
+  block.setAttribute('style', 'margin-top:28px;padding-top:8px;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;color:#242424;');
+
+  if(submitted || reviewed){
+    var meta = document.createElement('p');
+    meta.setAttribute('style', 'margin:0 0 16px 0;font-size:13px;font-weight:600;color:#242424;text-align:left;');
+    meta.innerHTML =
+      (submitted ? '<span style="color:#242424;">' + escapeHtmlText(submitted) + '</span>' : '') +
+      (submitted && reviewed ? '&nbsp;&nbsp;&nbsp;&nbsp;' : '') +
+      (reviewed ? '<span style="color:#242424;float:right;">' + escapeHtmlText(reviewed) + '</span>' : '');
+    block.appendChild(meta);
+  }
+
+  var thanks = document.createElement('p');
+  thanks.setAttribute('style',
+    'margin:18px 0 0 0;padding:0;text-align:center;font-size:16px;font-weight:700;' +
+    'color:#242424;font-family:\'Segoe UI\',Arial,Helvetica,sans-serif;'
+  );
+  thanks.textContent = 'Thank you';
+  block.appendChild(thanks);
+
+  footer.parentNode.replaceChild(block, footer);
+}
+
 function prepareCloneForTeams(clone){
   formatHeadingBlocksForTeams(clone);
   formatBannerForTeams(clone);
+  formatFooterForTeams(clone);
+  formatPanelHeadersForTeams(clone);
   formatTablesForTeams(clone);
+  addSectionGapsForTeams(clone);
   clone.querySelectorAll('a').forEach(function(a){
     a.style.color = '#1a5fb4';
     a.style.textDecoration = 'underline';
