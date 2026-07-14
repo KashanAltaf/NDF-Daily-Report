@@ -10,7 +10,7 @@ const ADO_TEST_PLAN_IDS = (process.env.ADO_TEST_PLAN_IDS || '14617,14359,13962,1
   .split(',')
   .map(function (s) { return s.trim(); })
   .filter(Boolean);
-const OPEN_BUGS_SINCE = (process.env.ADO_OPEN_BUGS_SINCE || process.env.JIRA_OPEN_BUGS_SINCE || '2026-06-30').trim();
+const OPEN_BUGS_SINCE = (process.env.ADO_OPEN_BUGS_SINCE || process.env.JIRA_OPEN_BUGS_SINCE || '2026-01-01').trim();
 
 /**
  * ADO Bug workflow mapped to the same report roles as Jira:

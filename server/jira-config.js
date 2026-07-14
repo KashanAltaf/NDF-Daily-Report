@@ -42,7 +42,7 @@ function buildBaseJqlParts() {
 }
 
 const BASE_JQL = buildBaseJqlParts().join(' AND ');
-const OPEN_BUGS_SINCE = process.env.JIRA_OPEN_BUGS_SINCE || '2026-06-30';
+const OPEN_BUGS_SINCE = process.env.JIRA_OPEN_BUGS_SINCE || '2026-01-01';
 const GITHUB_PR_URL_UAT_FIELD = process.env.JIRA_GITHUB_PR_URL_UAT_FIELD || 'customfield_10649';
 
 /** New bugs raised today — To Do only, created today */

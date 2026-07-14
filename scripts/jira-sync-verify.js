@@ -42,10 +42,10 @@ function merge(a, b) {
   var defectLog = merge(openToDo, merge(todayDefect, merge(fixedToday, today)));
   var enhancements = await jiraSearch(cfg.enhancementsJql());
   console.log('Today all:', today.length, today.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
-  console.log('Open To Do since 30-Jun:', openToDo.length);
+  console.log('Open To Do since 01-Jan:', openToDo.length);
   console.log('Fixed today (Create-PRD-PR):', fixedToday.length, fixedToday.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   console.log('Today defect log query:', todayDefect.length, todayDefect.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   console.log('Defect log total:', defectLog.length);
-  console.log('Enhancements (Task To Do + Bug/Task IMPROVEMENT, QA reporters since 30-Jun):', enhancements.length, enhancements.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
+  console.log('Enhancements (Task To Do + Bug/Task IMPROVEMENT, QA reporters since 01-Jan):', enhancements.length, enhancements.map(function (i) { return i.key + '(' + i.status + ')'; }).join(', '));
   defectLog.forEach(function (i) { console.log(' ', i.key, '|', i.status, '|', i.created.slice(0, 10)); });
 })().catch(function (e) { console.error(e); process.exit(1); });
