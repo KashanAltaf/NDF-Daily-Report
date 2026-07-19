@@ -26,6 +26,7 @@
   .toolbar button.ado-sync { background:#0078d4; }
   .toolbar button.ado-test-sync { background:#106ebe; }
   .toolbar button.playwright-import { background:#6366f1; }
+  .toolbar button.postman-import { background:#ff6c37; }
   .toolbar button.teams-copy { background:#6264A7; }
   .toolbar button.logout { background:#6b7280; }
   .toolbar button:hover { opacity:.9; }
@@ -356,6 +357,7 @@
   <button class="ado-sync" onclick="syncFromAdoBugs()">Sync Bugs (Azure DevOps)</button>
   <button class="ado-test-sync" onclick="openTestSummarySyncModal()">Sync Test Summary (Azure DevOps)</button>
   <button class="playwright-import" onclick="openPlaywrightImportModal()">Import Playwright Report</button>
+  <button class="postman-import" onclick="openPostmanImportModal()">Import Postman Saved Responses</button>
   <button class="alt" onclick="reloadTemplate()">Reload Template</button>
   <button class="alt" onclick="printForPdf()">Print / Save as PDF</button>
   <button class="logout" id="logoutBtn" onclick="logoutReport()" style="display:none;">Sign out</button>
@@ -601,7 +603,7 @@
       <td style="padding:7px 8px;border:1px solid #b9cdec;width:18%;">Response Body (summary)</td>
       <td style="padding:7px 8px;border:1px solid #b9cdec;width:55px;">Result</td>
       <td style="padding:7px 8px;border:1px solid #b9cdec;width:55px;">Jira Ref</td>
-    </tr><tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">[Add endpoint]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td></tr></table>
+    </tr><tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">[Add endpoint]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #b9cdec;">&#8212;</td></tr></table>
   <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tbl37')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tbl37')">− Remove row</button></div>
 
 </div>
@@ -709,10 +711,24 @@
   </div>
 </div>
 
+<div class="link-modal no-copy" id="postmanImportModal" onclick="if(event.target===this) closePostmanImportModal()">
+  <div class="link-modal-box">
+    <h3>Import Postman Saved Responses</h3>
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">Upload a Postman Collection v2.x JSON export. Only saved example responses in each request's <strong>Examples</strong> are imported; the requests are not sent.</p>
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">One API log row is created per saved response, including responses inside nested folders.</p>
+    <label for="postmanCollectionFile">Postman collection file</label>
+    <input id="postmanCollectionFile" type="file" accept=".json,application/json">
+    <div class="link-modal-actions">
+      <button type="button" class="apply" onclick="confirmPostmanImport()">Import</button>
+      <button type="button" class="cancel" onclick="closePostmanImportModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="link-modal no-copy" id="linkModal" onclick="if(event.target===this) closeLinkModal()">
   <div class="link-modal-box">
     <h3>Insert link</h3>
-    <p style="margin:0 0 10px;font-size:12px;color:#555;">Bug Tracker cells support multiple Jira links. Click an existing link to edit it; click after a link (or at the end of the cell) and Apply to add another.</p>
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">Jira ID, PR, and API Jira Ref cells support links. Click an existing link to edit it. Bug Tracker cells also support multiple Jira links.</p>
     <label for="linkText">Text to display</label>
     <input id="linkText" type="text" placeholder="e.g. PB-1234">
     <label for="linkUrl">Link (URL)</label>
@@ -2025,6 +2041,9 @@ function addRow(tableId){
     if(clone.cells[4]) applyPriorityCellStyle(clone.cells[4], '\u2014');
     if(clone.cells[7]) applyStatusCellStyle(clone.cells[7], '\u2014', null);
   }
+  if(tableId === 'tbl37' && clone.cells[8]){
+    clone.cells[8].classList.add('jira-link');
+  }
   rows[rows.length - 1].parentNode.appendChild(clone);
   var last = clone.querySelector('td,th');
   if(last) last.focus();
@@ -2426,7 +2445,7 @@ function prepareLinkModal(e){
 function openLinkModal(){
   linkTargetCell = getActiveJiraCell() || lastFocusedJiraCell;
   if(!linkTargetCell){
-    alert('Click inside a Jira ID or PR cell first (Bug Tracker or Defect Detail Log), then use Insert Link or Ctrl+K.');
+    alert('Click inside a Jira ID, PR, or API Jira Ref cell first, then use Insert Link or Ctrl+K.');
     return;
   }
   captureSelectionRange();
@@ -2548,12 +2567,18 @@ function removeLink(){
 }
 
 function initJiraLinks(){
-  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements', 'tbl37'].forEach(function(tableId){
     var tbl = document.getElementById(tableId);
     if(!tbl) return;
     var rows = tbl.querySelectorAll('tr');
     for(var i = 1; i < rows.length; i++){
-      if(rows[i].cells[0]){
+      if(tableId === 'tbl37'){
+        if(rows[i].cells[8]){
+          rows[i].cells[8].classList.add('jira-link');
+          rows[i].cells[8].setAttribute('contenteditable', 'true');
+        }
+        continue;
+      } else if(rows[i].cells[0]){
         rows[i].cells[0].classList.add('jira-link');
         rows[i].cells[0].setAttribute('contenteditable', 'true');
       }
@@ -4427,6 +4452,170 @@ function applyPlaywrightRowsToTable(rows){
   updateSectionNumbers();
   scheduleAutoSave();
   return rows ? rows.length : 0;
+}
+
+function summarizePostmanValue(value){
+  if(value == null || value === '') return '\u2014';
+  var text;
+  if(typeof value === 'string'){
+    text = value.trim();
+    if(text){
+      try { text = JSON.stringify(JSON.parse(text)); } catch(e){}
+    }
+  } else {
+    try { text = JSON.stringify(value); } catch(e){ text = String(value); }
+  }
+  text = String(text || '').replace(/\s+/g, ' ').trim();
+  if(!text) return '\u2014';
+  return text.length > 1000 ? text.slice(0, 997) + '...' : text;
+}
+
+function formatPostmanUrl(url){
+  if(!url) return '\u2014';
+  if(typeof url === 'string') return url || '\u2014';
+  if(url.raw) return String(url.raw);
+  var protocol = url.protocol ? String(url.protocol) + '://' : '';
+  var host = Array.isArray(url.host) ? url.host.join('.') : String(url.host || '');
+  var path = Array.isArray(url.path) ? url.path.join('/') : String(url.path || '');
+  var result = protocol + host + (path ? '/' + path : '');
+  return result || '\u2014';
+}
+
+function formatPostmanRequestBody(body){
+  if(!body) return '\u2014';
+  if(body.raw != null) return summarizePostmanValue(body.raw);
+  if(body.graphql != null) return summarizePostmanValue(body.graphql);
+  if(Array.isArray(body.urlencoded) || Array.isArray(body.formdata)){
+    var fields = body.urlencoded || body.formdata;
+    return summarizePostmanValue(fields.filter(function(field){
+      return !field.disabled;
+    }).map(function(field){
+      return { key: field.key, value: field.value, type: field.type };
+    }));
+  }
+  if(body.file && body.file.src) return summarizePostmanValue({ file: body.file.src });
+  return summarizePostmanValue(body);
+}
+
+function walkPostmanSavedResponses(items, folderPath, rows){
+  (items || []).forEach(function(item){
+    if(Array.isArray(item.item)){
+      var nextPath = folderPath.slice();
+      if(item.name) nextPath.push(String(item.name));
+      walkPostmanSavedResponses(item.item, nextPath, rows);
+      return;
+    }
+    (item.response || []).forEach(function(savedResponse){
+      var savedRequest = savedResponse.originalRequest || {};
+      var itemRequest = item.request || {};
+      var request = {
+        method: savedRequest.method || itemRequest.method,
+        url: savedRequest.url || itemRequest.url,
+        body: savedRequest.body || itemRequest.body
+      };
+      var scenario = folderPath.slice();
+      if(item.name) scenario.push(String(item.name));
+      if(savedResponse.name) scenario.push(String(savedResponse.name));
+      rows.push({
+        endpoint: formatPostmanUrl(request.url),
+        method: request.method || '\u2014',
+        scenario: scenario.join(' \u203a ') || '\u2014',
+        requestPayload: formatPostmanRequestBody(request.body),
+        expectedCode: '\u2014',
+        actualCode: savedResponse.code == null ? '\u2014' : String(savedResponse.code),
+        responseBody: summarizePostmanValue(savedResponse.body),
+        result: '\u2014',
+        jiraRef: '\u2014'
+      });
+    });
+  });
+}
+
+function parsePostmanSavedResponses(data){
+  var collection = data && data.collection ? data.collection : data;
+  if(!collection || !Array.isArray(collection.item)){
+    throw new Error('This is not a valid Postman Collection v2.x JSON export.');
+  }
+  var rows = [];
+  walkPostmanSavedResponses(collection.item, [], rows);
+  return rows;
+}
+
+function applyPostmanRowsToTable(rows){
+  var table = document.getElementById('tbl37');
+  if(!table) return 0;
+  while(table.rows.length > 1) table.deleteRow(1);
+  var stripe = 'background:#eef4fc;';
+  var pad = 'padding:6px 8px;border:1px solid #b9cdec;white-space:normal;overflow-wrap:anywhere;word-break:break-word;';
+  (rows || []).forEach(function(row, i){
+    var tr = document.createElement('tr');
+    if(i % 2 === 0) tr.setAttribute('style', stripe);
+    var values = [
+      row.endpoint,
+      row.method,
+      row.scenario,
+      row.requestPayload,
+      row.expectedCode,
+      row.actualCode,
+      row.responseBody,
+      row.result,
+      row.jiraRef
+    ];
+    values.forEach(function(text, col){
+      var td = document.createElement('td');
+      td.className = col === 8 ? 'e jira-link' : 'e';
+      td.setAttribute('contenteditable', 'true');
+      td.setAttribute('style', pad);
+      td.textContent = text == null || text === '' ? '\u2014' : String(text);
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  if(!rows || !rows.length) addRow('tbl37');
+  lockReportStructure();
+  updateSectionNumbers();
+  scheduleAutoSave();
+  return rows ? rows.length : 0;
+}
+
+function openPostmanImportModal(){
+  var input = document.getElementById('postmanCollectionFile');
+  if(input) input.value = '';
+  document.getElementById('postmanImportModal').classList.add('open');
+}
+
+function closePostmanImportModal(){
+  document.getElementById('postmanImportModal').classList.remove('open');
+}
+
+function confirmPostmanImport(){
+  var input = document.getElementById('postmanCollectionFile');
+  if(!input || !input.files || !input.files[0]){
+    alert('Choose a Postman collection JSON file first.');
+    return;
+  }
+  var file = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(){
+    try {
+      var rows = parsePostmanSavedResponses(JSON.parse(String(reader.result || '')));
+      if(!rows.length){
+        throw new Error('No saved example responses were found. Save responses as Examples in Postman, then export the collection again.');
+      }
+      var count = applyPostmanRowsToTable(rows);
+      closePostmanImportModal();
+      showToast('Imported ' + count + ' Postman saved response row(s).');
+      setSaveStatus('ok', 'Postman responses imported');
+    } catch(err){
+      setSaveStatus('err', 'Postman import failed');
+      alert('Could not import Postman saved responses:\n\n' + (err.message || err));
+    }
+  };
+  reader.onerror = function(){
+    setSaveStatus('err', 'Postman import failed');
+    alert('Could not read the selected Postman collection file.');
+  };
+  reader.readAsText(file);
 }
 
 function openPlaywrightImportModal(){
