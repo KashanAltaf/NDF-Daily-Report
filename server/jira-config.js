@@ -16,6 +16,7 @@ const STATUS = {
   OPEN: 'To Do',
   OPEN_BUG_ISSUE: 'Bug/Issue',
   FIXED: 'Create-PRD-PR',
+  DONE: 'Done',
   RETEST: 'UAT-Testing',
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
@@ -23,12 +24,29 @@ const STATUS = {
 };
 
 const OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE];
+/** Create-PRD-PR and Done both display as Fixed in the report */
+const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
 const CLOSED_STATUSES = [STATUS.CLOSED];
 const EXCLUDED_STATUSES = [STATUS.CLOSED, STATUS.CANCELED];
 
 function excludedStatusesInJql() {
   return EXCLUDED_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
+}
+
+function fixedStatusesInJql() {
+  return FIXED_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
+}
+
+function fixedTodayClause() {
+  return '(' +
+    'status in (' + fixedStatusesInJql() + ')' +
+    ' AND (' +
+    'status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
+    ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
+    ' OR created >= startOfDay()' +
+    ')' +
+    ')';
 }
 
 function buildBaseJqlParts() {
@@ -69,25 +87,21 @@ function openBugsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-/** Today's bugs for defect log — open statuses created today, Fixed today, or Canceled today */
+/** Today's bugs for defect log — open statuses created today, Fixed/Done today, or Canceled today */
 function todayDefectLogJql(extra) {
   var jql = BASE_JQL + ' AND (' +
-    '(created >= startOfDay() AND status in (' + openStatusesInJql() + ', "' + STATUS.FIXED + '", "' + STATUS.CANCELED + '"))' +
+    '(created >= startOfDay() AND status in (' + openStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
     ' OR status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
+    ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.CANCELED + '" during (startOfDay(), now())' +
     ')';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
 
-/** Fixed today — currently Create-PRD-PR AND became fixed today (tracker: "Fixed verified in this session") */
+/** Fixed today — Create-PRD-PR or Done today (tracker: "Fixed verified in this session") */
 function fixedTodayJql(extra) {
-  var jql = BASE_JQL +
-    ' AND status = "' + STATUS.FIXED + '"' +
-    ' AND (' +
-    'status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
-    ' OR created >= startOfDay()' +
-    ')';
+  var jql = BASE_JQL + ' AND ' + fixedTodayClause();
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY updated DESC';
 }
@@ -116,14 +130,14 @@ function enhancementsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-/** Enhancement tasks fixed today — Task moved to Create-PRD-PR today */
+/** Enhancement tasks fixed today — Task moved to Create-PRD-PR or Done today */
 function enhancementsFixedTodayJql(extra) {
   var parts = [
     'project = ' + JIRA_PROJECT,
     'issuetype = Task',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
-    'status = "' + STATUS.FIXED + '"',
-    '(status changed to "' + STATUS.FIXED + '" during (startOfDay(), now()) OR created >= startOfDay())'
+    'status in (' + fixedStatusesInJql() + ')',
+    '(status changed to "' + STATUS.FIXED + '" during (startOfDay(), now()) OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now()) OR created >= startOfDay())'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
   var jql = parts.join(' AND ');
@@ -141,11 +155,11 @@ function regressionBugsJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Active bugs for tracker buckets (excludes closed UAT-PR-Approval and Canceled) */
+/** Active bugs for tracker buckets (excludes closed UAT-PR-Approval, Canceled, and historical Done) */
 function activeBugsJql(extra) {
   var jql = BASE_JQL +
     ' AND created >= "' + OPEN_BUGS_SINCE + '"' +
-    ' AND status not in (' + excludedStatusesInJql() + ')';
+    ' AND status not in (' + excludedStatusesInJql() + ', "' + STATUS.DONE + '")';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
@@ -158,6 +172,7 @@ module.exports = {
   REPORTERS,
   STATUS,
   OPEN_STATUSES,
+  FIXED_STATUSES,
   CLOSED_STATUSES,
   EXCLUDED_STATUSES,
   BASE_JQL,

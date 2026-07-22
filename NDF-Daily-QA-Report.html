@@ -2700,7 +2700,7 @@ function isEnhancementEligibleIssue(issue){
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return type === 'bug' || type === 'task';
   if(s === 'todo' && type === 'task') return true;
-  if(s === 'createprdpr' && type === 'task') return isIssueFixedToday(issue);
+  if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
   return false;
 }
 
@@ -2747,7 +2747,8 @@ function isExcludedReportIssue(issue){
 }
 
 function isFixedJiraStatus(status){
-  return normalizeJiraStatusName(status) === 'createprdpr';
+  var s = normalizeJiraStatusName(status);
+  return s === 'createprdpr' || s === 'done';
 }
 
 function isFixedIssue(issue){
@@ -2852,7 +2853,7 @@ function bucketIssueByStatus(issue){
   if(issue && issue.source === 'ado') return bucketAdoIssue(issue);
   var s = normalizeJiraStatusName(issue.status);
   if(isOpenJiraStatusName(s)) return 'open';
-  if(s === 'createprdpr') return 'fixed';
+  if(s === 'createprdpr' || s === 'done') return 'fixed';
   if(s === 'uattesting') return 'retest';
   if(s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
   return 'other';
@@ -2884,7 +2885,7 @@ function formatStatusLabel(status, issue){
   if(issue && issue.source === 'ado') return formatAdoStatusLabel(status);
   var s = normalizeJiraStatusName(status);
   if(isOpenJiraStatusName(s)) return 'Open';
-  if(s === 'createprdpr') return 'Fixed';
+  if(s === 'createprdpr' || s === 'done') return 'Fixed';
   if(s === 'improvement') return 'Open';
   if(s === 'canceled' || s === 'cancelled' || /^cancel(?:ed|led)?$/i.test(String(status || '').trim())) return 'Canceled';
   if(s === 'fixed' || /^fixed$/i.test(String(status || '').trim())) return 'Fixed';
@@ -2895,6 +2896,7 @@ function formatStatusLabel(status, issue){
   if(/^bug\s*\/\s*issue$/i.test(label)) return 'Open';
   if(/^create[\s-]?prd[\s-]?pr$/i.test(label)) return 'Fixed';
   if(/create-prd-pr/i.test(label)) return 'Fixed';
+  if(/^done$/i.test(label)) return 'Fixed';
   return label || '\u2014';
 }
 
@@ -2930,6 +2932,8 @@ function isIssueFixedToday(issue){
   if(issue.fixedToday === true) return true;
   if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueCreatedToday(issue);
   var s = normalizeJiraStatusName(issue.status);
+  // Done is today-only: require the sync fixedToday flag (status changed/created today)
+  if(s === 'done') return false;
   if(s !== 'createprdpr') return false;
   return isIssueCreatedToday(issue);
 }
@@ -2953,7 +2957,7 @@ function isDefectLogEligible(issue){
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
   if(isOpenJiraStatusName(s)) return true;
   if(s === 'uattesting') return true;
-  if(s === 'createprdpr') return isIssueFixedToday(issue);
+  if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
   return false;
 }
 
@@ -3102,7 +3106,7 @@ function applyStatusCellStyle(cell, status, issue){
   var color = '#222222';
   if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || labelKey === 'open'){
     bg = '#cfe2ff'; color = '#0d3d7a';
-  } else if(s === 'createprdpr' || statusKey === 'fixed' || labelKey === 'fixed'){
+  } else if(s === 'createprdpr' || s === 'done' || statusKey === 'fixed' || statusKey === 'done' || labelKey === 'fixed'){
     bg = '#c8e6c9'; color = '#1b5e20';
   } else if(labelKey === 'inretest' || s === 'uattesting' || /retest|verify|uat/.test(statusKey)){
     bg = '#fff3cd'; color = '#7a5c00';
@@ -3321,7 +3325,7 @@ function isTodayDefectDateText(txt){
 
 function isFixedOrCanceledStatusName(status){
   var s = normalizeJiraStatusName(status);
-  return s === 'createprdpr' || s === 'fixed' || s === 'canceled' || s === 'cancelled';
+  return s === 'createprdpr' || s === 'done' || s === 'fixed' || s === 'canceled' || s === 'cancelled';
 }
 
 function isDefectRowEligibleByContent(row){
@@ -3346,7 +3350,7 @@ function purgeStaleDefectLogRows(){
     var rawStatus = row.getAttribute('data-jira-status') || statusCell.textContent;
     var s = normalizeJiraStatusName(rawStatus);
     var label = (statusCell.textContent || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
-    var isFixed = s === 'createprdpr' || label === 'fixed';
+    var isFixed = s === 'createprdpr' || s === 'done' || label === 'fixed';
     var isCanceled = s === 'canceled' || s === 'cancelled' || label === 'canceled' || label === 'cancelled';
     if(!isFixed && !isCanceled) continue;
     var dateCell = row.cells[9];
@@ -3669,7 +3673,7 @@ function syncFromJira(){
       setSaveStatus('ok', 'Jira sync complete');
       showToast('Synced ' + (result.data.todayTotal || 0) + ' bug(s) today; ' +
         (result.data.openTotal || 0) + ' open (To Do / Bug/Issue); ' +
-        (result.data.fixedTodayTotal || 0) + ' fixed today (Create-PRD-PR); ' +
+        (result.data.fixedTodayTotal || 0) + ' fixed today (Create-PRD-PR / Done); ' +
         (result.data.canceledTodayTotal || 0) + ' canceled today; ' +
         (result.data.regressionTotal || 0) + ' regression(s); ' +
         (result.data.enhancementTotal || 0) + ' enhancement(s); ' +

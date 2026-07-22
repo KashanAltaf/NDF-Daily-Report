@@ -49,7 +49,7 @@ function normalizeStatusName(name) {
 function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
   if (s === 'todo' || s === 'bugissue') return 'open';
-  if (s === 'createprdpr') return 'fixed';
+  if (s === 'createprdpr' || s === 'done') return 'fixed';
   if (s === 'uattesting') return 'retest';
   if (s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
   return 'other';
@@ -71,6 +71,16 @@ function isClosedStatus(statusName) {
 
 function isFixedStatus(statusName) {
   return bucketForStatus(statusName) === 'fixed';
+}
+
+function isDoneStatus(statusName) {
+  return normalizeStatusName(statusName) === 'done';
+}
+
+/** Done must be from today (status change or created today); Create-PRD-PR uses the same fixedToday key set */
+function isEligibleFixedIssue(issue, fixedTodayKeys) {
+  if (!issue || !isFixedStatus(issue.status)) return false;
+  return !!(fixedTodayKeys && fixedTodayKeys[issue.key]);
 }
 
 async function jiraSearch(jql) {
@@ -182,13 +192,23 @@ async function fetchReportIssues() {
   fixedTodayIssues.forEach(function (issue) { fixedTodayKeys[issue.key] = true; });
   var canceledTodayKeys = {};
   canceledTodayIssues.forEach(function (issue) { canceledTodayKeys[issue.key] = true; });
+  // Historical Done must never enter the tracker/defect pipeline; only today's Done (fixedTodayKeys)
+  trackerIssues = trackerIssues.filter(function (issue) {
+    if (!isDoneStatus(issue.status)) return true;
+    return !!fixedTodayKeys[issue.key];
+  });
   var buckets = bucketIssues(trackerIssues);
   var defectLogIssues = mergeIssuesByKey(openToDoIssues, mergeIssuesByKey(todayDefectIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(canceledTodayIssues, mergeIssuesByKey(todayIssues, buckets.retest || [])))));
   defectLogIssues = defectLogIssues.filter(function (issue) {
-    if (isFixedStatus(issue.status)) return !!fixedTodayKeys[issue.key];
+    if (isFixedStatus(issue.status)) return isEligibleFixedIssue(issue, fixedTodayKeys);
     var s = normalizeStatusName(issue.status);
     if (s === 'canceled' || s === 'cancelled') return !!canceledTodayKeys[issue.key];
     return true;
+  });
+  // Drop any non-today Done tasks from enhancements
+  enhancementIssues = enhancementIssues.filter(function (issue) {
+    if (!isDoneStatus(issue.status)) return true;
+    return !!enhancementFixedTodayKeys[issue.key];
   });
 
   return {
