@@ -535,6 +535,36 @@
 
 </div>
 
+<div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>  <!-- ============ OTHER ISSUES MATRIX ============ -->
+  <div style="padding:0 4px 6px;margin-top:22px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#475569" style="background-color:#475569;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">4</span></td><td style="padding-left:10px;color:#475569;font-weight:800;font-size:16px;white-space:nowrap;">Other Issues</td></tr></table>
+  </div>
+  <p style="margin:0 4px 8px;font-size:12px;color:#475569;">Issues found during build validation that are not covered by business-flow test cases (CORS, environment, deployment, configuration, and similar).</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:11.5px;border:1px solid #cbd5e1;" id="tblOtherIssues">
+    <tr style="background:#64748b;color:#fff;font-weight:700;text-align:left;">
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;width:22%;">Category</td>
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;">Description</td>
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;width:12%;">Test Case Required?</td>
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;width:70px;">Count</td>
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;width:18%;">Notes / Impact</td>
+      <td style="padding:7px 8px;border:1px solid #cbd5e1;width:70px;">Jira Ref</td>
+    </tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">CORS / API Configuration</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Cross-Origin Resource Sharing or API configuration issues.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Environment Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">QA, UAT, or Pre-Prod environment misconfiguration.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Deployment Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Build deployment or release configuration problems.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Authentication / Authorization</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Login, token, session, or permission configuration issues.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Usually No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Network / Connectivity</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">API unavailable, timeout, DNS, or SSL issues.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Configuration Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Incorrect application or server configuration.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Data Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Missing, incorrect, or corrupted test data.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Performance Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Slow response, timeout, memory, or CPU-related issues.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Logging / Monitoring Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Missing logs, incorrect error handling, monitoring alerts.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">Build Stability Issue</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">Build crashes, application not loading, startup failures.</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+    <tr style="background:#f8fafc;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;font-weight:700;">[Add other issue category]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">No</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">0</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td><td class="e jira-link" contenteditable="true" style="padding:6px 8px;border:1px solid #cbd5e1;">&#8212;</td></tr>
+  </table>
+  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblOtherIssues')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblOtherIssues')">− Remove row</button></div>
+
+</div>
+
 <div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>  <!-- ============ 3.5 FIELD-LEVEL VALIDATION LOG ============ -->
   <div style="padding:0 4px 6px;margin-top:22px;">
     <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#db8324" style="background-color:#db8324;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">4</span></td><td style="padding-left:10px;color:#db8324;font-weight:800;font-size:16px;white-space:nowrap;">Field-Level Validation Log</td></tr></table>
@@ -2044,6 +2074,9 @@ function addRow(tableId){
   if(tableId === 'tbl37' && clone.cells[8]){
     clone.cells[8].classList.add('jira-link');
   }
+  if(tableId === 'tblOtherIssues' && clone.cells[5]){
+    clone.cells[5].classList.add('jira-link');
+  }
   rows[rows.length - 1].parentNode.appendChild(clone);
   var last = clone.querySelector('td,th');
   if(last) last.focus();
@@ -2066,7 +2099,7 @@ function getSelectedTableRow(tableId){
 
 function isPlaceholderRow(row){
   var text = (row.textContent || '').replace(/\u00a0/g, ' ').trim();
-  return /\[Add row|\[Add service|\[Add endpoint|\[Add role|\[Add rows per field|\[Add row per defect|\[Add row per enhancement|\[Add row per sales portal enhancement|\[Add automation test case|\[Add module|\[Add test case/i.test(text);
+  return /\[Add row|\[Add service|\[Add endpoint|\[Add role|\[Add rows per field|\[Add row per defect|\[Add row per enhancement|\[Add row per sales portal enhancement|\[Add automation test case|\[Add module|\[Add test case|\[Add other issue category/i.test(text);
 }
 
 function isRemovableDataRow(table, row){
@@ -2445,7 +2478,7 @@ function prepareLinkModal(e){
 function openLinkModal(){
   linkTargetCell = getActiveJiraCell() || lastFocusedJiraCell;
   if(!linkTargetCell){
-    alert('Click inside a Jira ID, PR, or API Jira Ref cell first, then use Insert Link or Ctrl+K.');
+    alert('Click inside a Jira ID, PR, or Jira Ref cell first, then use Insert Link or Ctrl+K.');
     return;
   }
   captureSelectionRange();
@@ -2567,7 +2600,7 @@ function removeLink(){
 }
 
 function initJiraLinks(){
-  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements', 'tbl37'].forEach(function(tableId){
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements', 'tbl37', 'tblOtherIssues'].forEach(function(tableId){
     var tbl = document.getElementById(tableId);
     if(!tbl) return;
     var rows = tbl.querySelectorAll('tr');
@@ -2576,6 +2609,12 @@ function initJiraLinks(){
         if(rows[i].cells[8]){
           rows[i].cells[8].classList.add('jira-link');
           rows[i].cells[8].setAttribute('contenteditable', 'true');
+        }
+        continue;
+      } else if(tableId === 'tblOtherIssues'){
+        if(rows[i].cells[5]){
+          rows[i].cells[5].classList.add('jira-link');
+          rows[i].cells[5].setAttribute('contenteditable', 'true');
         }
         continue;
       } else if(rows[i].cells[0]){
