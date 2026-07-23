@@ -335,9 +335,48 @@ async function fetchSuiteTestCaseIds(planId, suiteId) {
   return ids;
 }
 
+async function fetchChildSuites(planId, suiteId) {
+  try {
+    var data = await adoFetch(
+      '/_apis/testplan/Plans/' + planId + '/Suites/' + suiteId +
+      '/Suites?api-version=' + cfg.ADO_API_VERSION
+    );
+    return data.value || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function moduleStatusLabel(passed, failed, blocked) {
+  var total = (Number(passed) || 0) + (Number(failed) || 0) + (Number(blocked) || 0);
+  if (total <= 0) return '\u26A0\uFE0F Partial';
+  if ((Number(failed) || 0) === 0 && (Number(blocked) || 0) === 0 && (Number(passed) || 0) > 0) {
+    return '\u2705 Pass';
+  }
+  if ((Number(passed) || 0) === 0 && (Number(blocked) || 0) === 0 && (Number(failed) || 0) > 0) {
+    return '\u274C Failed';
+  }
+  return '\u26A0\uFE0F Partial';
+}
+
+function emptyModuleStats(name) {
+  return {
+    name: name || 'Other',
+    testCases: 0,
+    passed: 0,
+    failed: 0,
+    blocked: 0,
+    notApplicable: 0,
+    notExecuted: 0,
+    executed: 0,
+    status: '\u26A0\uFE0F Partial'
+  };
+}
+
 async function fetchScopeTestCases() {
   var plans = await fetchTestPlans();
   var testCaseIds = {};
+  var testCaseModules = {};
   var planNames = [];
 
   for (var i = 0; i < plans.length; i++) {
@@ -346,18 +385,44 @@ async function fetchScopeTestCases() {
     var suiteId = (plan.rootSuite && plan.rootSuite.id) || plan.rootSuiteId;
     if (!suiteId) suiteId = await fetchPlanRootSuiteId(plan.id);
     if (!suiteId) continue;
-    var ids = await fetchSuiteTestCaseIds(plan.id, suiteId);
-    var count = Object.keys(ids).length;
-    if (count) {
-      planNames.push(planName + ' (' + count + ')');
-      Object.keys(ids).forEach(function (id) { testCaseIds[id] = true; });
+
+    var childSuites = await fetchChildSuites(plan.id, suiteId);
+    var moduleSuites = childSuites.length
+      ? childSuites
+      : [{ id: suiteId, name: planName }];
+
+    var planCaseCount = 0;
+    for (var s = 0; s < moduleSuites.length; s++) {
+      var moduleSuite = moduleSuites[s];
+      var moduleName = String(moduleSuite.name || planName).trim() || planName;
+      var ids = await fetchSuiteTestCaseIds(plan.id, moduleSuite.id);
+      Object.keys(ids).forEach(function (id) {
+        var isNew = !testCaseIds[id];
+        testCaseIds[id] = true;
+        if (!testCaseModules[id]) testCaseModules[id] = moduleName;
+        if (isNew) planCaseCount += 1;
+      });
     }
+
+    // Catch any root-level cases not under a child suite when children exist
+    if (childSuites.length) {
+      var rootIds = await fetchSuiteTestCaseIds(plan.id, suiteId);
+      Object.keys(rootIds).forEach(function (id) {
+        if (testCaseIds[id]) return;
+        testCaseIds[id] = true;
+        testCaseModules[id] = planName;
+        planCaseCount += 1;
+      });
+    }
+
+    if (planCaseCount) planNames.push(planName + ' (' + planCaseCount + ')');
   }
 
   return {
     totalInScope: Object.keys(testCaseIds).length,
     planNames: planNames,
-    testCaseIds: testCaseIds
+    testCaseIds: testCaseIds,
+    testCaseModules: testCaseModules
   };
 }
 
@@ -447,6 +512,7 @@ async function fetchTestSummary(startDate, endDate) {
 
   var scope = await fetchScopeTestCases();
   var totalInScope = scope.totalInScope;
+  var testCaseModules = scope.testCaseModules || {};
   var runs = await fetchRunsForRange(runFetchRange);
   var cycleCounts = emptyCounts();
   var todayCounts = emptyCounts();
@@ -472,6 +538,13 @@ async function fetchTestSummary(startDate, endDate) {
     results.forEach(function (result) {
       var bucket = normalizeOutcome(result.outcome);
       var testCaseId = getResultTestCaseId(result);
+      if (testCaseId && !testCaseModules[testCaseId]) {
+        var suiteName = (result.testSuite && result.testSuite.name) ||
+          (result.testCase && result.testCase.areaPath) ||
+          '';
+        var parsed = jiraParse.parseSummaryModule((result.testCase && result.testCase.name) || result.testCaseTitle || '');
+        testCaseModules[testCaseId] = String(suiteName || parsed.module || planName || 'Other').trim() || 'Other';
+      }
       if (resultExecutedInRange(result, cycleRange)) {
         if (testCaseId) {
           cycleExecutedIds[testCaseId] = true;
@@ -511,6 +584,32 @@ async function fetchTestSummary(startDate, endDate) {
     return '\u2022 ' + name;
   });
 
+  var moduleStats = {};
+  Object.keys(testCaseModules).forEach(function (id) {
+    var moduleName = testCaseModules[id] || 'Other';
+    if (!moduleStats[moduleName]) moduleStats[moduleName] = emptyModuleStats(moduleName);
+    moduleStats[moduleName].testCases += 1;
+  });
+  Object.keys(cycleLatestOutcome).forEach(function (id) {
+    var moduleName = testCaseModules[id] || 'Other';
+    if (!moduleStats[moduleName]) moduleStats[moduleName] = emptyModuleStats(moduleName);
+    var bucket = cycleLatestOutcome[id].bucket;
+    moduleStats[moduleName].executed += 1;
+    if (bucket === 'passed') moduleStats[moduleName].passed += 1;
+    else if (bucket === 'failed') moduleStats[moduleName].failed += 1;
+    else if (bucket === 'blocked') moduleStats[moduleName].blocked += 1;
+    else if (bucket === 'notApplicable') moduleStats[moduleName].notApplicable += 1;
+    else moduleStats[moduleName].notExecuted += 1;
+  });
+  var modules = Object.keys(moduleStats).sort(function (a, b) {
+    return a.localeCompare(b);
+  }).map(function (name) {
+    var row = moduleStats[name];
+    row.notExecuted = Math.max(0, row.testCases - row.executed);
+    row.status = moduleStatusLabel(row.passed, row.failed, row.blocked);
+    return row;
+  });
+
   return {
     fetchedAt: new Date().toISOString(),
     startDate: cfg.localDateString(cycleRange.start),
@@ -519,6 +618,7 @@ async function fetchTestSummary(startDate, endDate) {
     runs: runSummaries,
     runCount: runSummaries.length,
     plansInScope: scope.planNames.length,
+    modules: modules,
     summary: {
       totalInScope: totalInScope,
       executedToday: executedToday,

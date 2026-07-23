@@ -686,7 +686,7 @@
 <div class="link-modal no-copy" id="testSummaryModal" onclick="if(event.target===this) closeTestSummarySyncModal()">
   <div class="link-modal-box">
     <h3>Sync Test Summary</h3>
-    <p style="margin:0 0 10px;font-size:12px;color:#555;">Select the cycle start date (end date is today). <strong>Total in scope</strong> counts all test cases in your ADO test plans. <strong>Executed today</strong> and <strong>Cumulative executed</strong> count unique test cases run on today and from start date through today.</p>
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">Select the cycle start date (end date is today). <strong>Total in scope</strong> counts all test cases in your ADO test plans. <strong>Executed today</strong> and <strong>Cumulative executed</strong> count unique test cases run on today and from start date through today. The <strong>Service &amp; Module Coverage Matrix</strong> is filled with one row per module (suite), including Pass / Failed / Partial status.</p>
     <label for="testSummaryStartDate">Cycle start date</label>
     <input id="testSummaryStartDate" type="date">
     <p style="margin:10px 0 0;font-size:12px;color:#555;">End date: <strong id="testSummaryEndDateLabel">Today</strong></p>
@@ -3913,6 +3913,64 @@ function setSummaryMetric(label, value, key){
   setSummaryMetricValue(row.cells[1], value);
 }
 
+function coverageMatrixStatus(passed, failed, blocked){
+  var p = Number(passed) || 0;
+  var f = Number(failed) || 0;
+  var b = Number(blocked) || 0;
+  var total = p + f + b;
+  if(total <= 0) return '\u26A0\uFE0F Partial';
+  if(f === 0 && b === 0 && p > 0) return '\u2705 Pass';
+  if(p === 0 && b === 0 && f > 0) return '\u274C Failed';
+  return '\u26A0\uFE0F Partial';
+}
+
+function applyCoverageMatrixRows(modules){
+  var table = document.getElementById('tbl34');
+  if(!table) return 0;
+  while(table.rows.length > 1) table.deleteRow(1);
+  var pad = 'padding:6px 8px;border:1px solid #bcd9be;';
+  var stripe = 'background:#eef8ef;';
+  var rows = Array.isArray(modules) ? modules.slice() : [];
+  rows.sort(function(a, b){
+    return String((a && a.name) || '').localeCompare(String((b && b.name) || ''));
+  });
+  rows.forEach(function(mod, i){
+    if(!mod) return;
+    var name = String(mod.name || '').trim() || 'Other';
+    var testCases = mod.testCases != null ? Number(mod.testCases) || 0 : ((Number(mod.passed) || 0) + (Number(mod.failed) || 0) + (Number(mod.blocked) || 0));
+    var passed = Number(mod.passed) || 0;
+    var failed = Number(mod.failed) || 0;
+    var blocked = Number(mod.blocked) || 0;
+    var status = mod.status || coverageMatrixStatus(passed, failed, blocked);
+    var tr = document.createElement('tr');
+    if(i % 2 === 0) tr.setAttribute('style', stripe);
+    tr.setAttribute('data-coverage-sync', 'true');
+    [
+      name,
+      '\u2014',
+      '\u2014',
+      String(testCases),
+      String(passed),
+      String(failed),
+      String(blocked),
+      status
+    ].forEach(function(text, col){
+      var td = document.createElement('td');
+      td.className = 'e';
+      td.setAttribute('contenteditable', 'true');
+      td.setAttribute('style', pad + (col === 0 ? 'font-weight:700;' : ''));
+      td.textContent = text;
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  if(!rows.length) addRow('tbl34');
+  lockReportStructure();
+  updateSectionNumbers();
+  scheduleAutoSave();
+  return rows.length;
+}
+
 function applyAdoTestSummaryPayload(payload){
   repairSummaryMetricRows();
   var s = payload.summary || {};
@@ -3939,7 +3997,9 @@ function applyAdoTestSummaryPayload(payload){
     var scopeEl = document.getElementById('scopeTestedToday');
     if(scopeEl) scopeEl.innerHTML = String(s.scopeText).replace(/\n/g, '<br>');
   }
+  var moduleCount = applyCoverageMatrixRows(payload.modules || []);
   scheduleAutoSave();
+  return moduleCount;
 }
 
 var TEST_SUMMARY_START_KEY = 'ndf-qa-test-summary-start';
@@ -4009,11 +4069,12 @@ function syncFromAdoTestSummary(startDate){
       var totalInScope = (result.data.summary && result.data.summary.totalInScope) || 0;
       var executedToday = (result.data.summary && result.data.summary.executedToday) || 0;
       var cumulative = (result.data.summary && result.data.summary.cumulativeExecuted) || 0;
+      var moduleCount = (result.data.modules && result.data.modules.length) || 0;
       var rangeLabel = (result.data.startDate || startDate) + ' to ' + (result.data.endDate || 'today');
-      if(!totalInScope && !cumulative){
+      if(!totalInScope && !cumulative && !moduleCount){
         showToast('No test data returned. Hard refresh, then sync again.');
       } else {
-        showToast('Scope: ' + totalInScope + ' test case(s). Today: ' + executedToday + '. Cycle: ' + cumulative + ' (' + rangeLabel + ').');
+        showToast('Scope: ' + totalInScope + ' test case(s). Today: ' + executedToday + '. Cycle: ' + cumulative + '. Modules: ' + moduleCount + ' (' + rangeLabel + ').');
       }
     })
     .catch(function(err){
