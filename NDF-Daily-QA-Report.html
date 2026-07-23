@@ -2804,6 +2804,8 @@ function mergeIssuesWithPersistent(defectLogIssues, syncSource, freshByKey){
     if(isDefectLogEligible(issue)) map[issue.key] = issue;
   });
   Object.keys(map).forEach(function(key){
+    var issue = map[key];
+    if(issue && issue.fixedToday && !isIssueDateToday(issue)) delete issue.fixedToday;
     if(!isDefectLogEligible(map[key])) delete map[key];
   });
   savePersistentOpenBugs(storageKey, map);
@@ -2831,13 +2833,37 @@ function getTrackerRowByLabel(label){
   return null;
 }
 
+function uniqueIssuesByKey(issues){
+  var map = {};
+  (issues || []).forEach(function(issue){
+    var key = normalizeIssueKey(issue && (issue.key || issue.text));
+    if(!key) return;
+    map[key.toUpperCase()] = issue;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; });
+}
+
+function dedupeEntriesByKey(entries){
+  var seen = {};
+  var out = [];
+  (entries || []).forEach(function(entry){
+    var key = normalizeIssueKey(entry && (entry.key || entry.text));
+    if(!key) return;
+    var norm = key.toUpperCase();
+    if(seen[norm]) return;
+    seen[norm] = true;
+    out.push(entry);
+  });
+  return out;
+}
+
 function fillTrackerRowByLabel(label, issues){
   var row = getTrackerRowByLabel(label);
   if(!row || !row.cells[2]) return;
   var cell = row.cells[2];
-  var entries = (issues || []).map(function(issue){
+  var entries = dedupeEntriesByKey((issues || []).map(function(issue){
     return { key: issue.key, text: issue.key, url: issue.url || '' };
-  });
+  }));
   if(entries.length) renderJiraLinksInCell(cell, entries);
   else cell.innerHTML = '';
   if(row.cells[1]) row.cells[1].textContent = String(entries.length || '');
@@ -2927,14 +2953,23 @@ function isIssueCanceledToday(issue){
   return isIssueCreatedToday(issue);
 }
 
+function isIssueDateToday(issue){
+  if(!issue) return false;
+  if(issue.timestamp && isTodayDefectDateText(issue.timestamp)) return true;
+  if(isIssueUpdatedToday(issue)) return true;
+  if(isIssueCreatedToday(issue)) return true;
+  return false;
+}
+
 function isIssueFixedToday(issue){
   if(!issue) return false;
-  if(issue.fixedToday === true) return true;
-  if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueCreatedToday(issue);
+  if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueDateToday(issue);
   var s = normalizeJiraStatusName(issue.status);
-  // Done is today-only: require the sync fixedToday flag (status changed/created today)
+  if(s !== 'createprdpr' && s !== 'done') return false;
+  // fixedToday from a previous day must not keep the row after the date passes
+  if(issue.fixedToday === true) return isIssueDateToday(issue);
+  // Done is today-only via sync flag + date
   if(s === 'done') return false;
-  if(s !== 'createprdpr') return false;
   return isIssueCreatedToday(issue);
 }
 
@@ -3014,16 +3049,16 @@ function applySyncDataToTracker(issueMap, todayIssues, syncSource, fixedTodayIss
     else buckets.other.push(issue);
   });
 
-  var fixedToday = filterReportIssues(fixedTodayIssues || [], syncSource);
+  var fixedToday = uniqueIssuesByKey(filterReportIssues(fixedTodayIssues || [], syncSource).filter(isIssueFixedToday));
   if(!fixedToday.length && syncSource === 'jira'){
-    fixedToday = today.filter(function(issue){
-      return bucketIssueByStatus(issue) === 'fixed';
-    });
+    fixedToday = uniqueIssuesByKey(today.filter(function(issue){
+      return bucketIssueByStatus(issue) === 'fixed' && isIssueFixedToday(issue);
+    }));
   }
   if(!fixedToday.length && syncSource === 'ado'){
-    fixedToday = today.filter(function(issue){
-      return bucketIssueByStatus(issue) === 'fixed';
-    });
+    fixedToday = uniqueIssuesByKey(today.filter(function(issue){
+      return bucketIssueByStatus(issue) === 'fixed' && isIssueFixedToday(issue);
+    }));
   }
 
   var openRowIssues = mergeIssueArrays(filterReportIssues(openIssues || [], syncSource), buckets.open).filter(function(issue){
@@ -3325,52 +3360,123 @@ function isTodayDefectDateText(txt){
 
 function isFixedOrCanceledStatusName(status){
   var s = normalizeJiraStatusName(status);
-  return s === 'createprdpr' || s === 'done' || s === 'fixed' || s === 'canceled' || s === 'cancelled';
+  return s === 'createprdpr' || s === 'done' || s === 'fixed' || s === 'closed' || s === 'resolved' ||
+    s === 'completed' || s === 'canceled' || s === 'cancelled';
+}
+
+function isRowFixedStatus(row){
+  if(!row) return false;
+  var statusCell = row.cells[7];
+  var rawStatus = row.getAttribute('data-jira-status') || (statusCell ? statusCell.textContent : '');
+  var s = normalizeJiraStatusName(rawStatus);
+  var label = statusCell ? (statusCell.textContent || '').replace(/\u00a0/g, ' ').trim().toLowerCase() : '';
+  return s === 'createprdpr' || s === 'done' || s === 'fixed' || s === 'closed' || s === 'resolved' ||
+    s === 'completed' || label === 'fixed';
 }
 
 function isDefectRowEligibleByContent(row){
   if(!row) return true;
   var statusCell = row.cells[7];
   var rawStatus = row.getAttribute('data-jira-status') || (statusCell ? statusCell.textContent : '');
-  if(!isFixedOrCanceledStatusName(rawStatus)) return true;
+  if(!isFixedOrCanceledStatusName(rawStatus) && !isRowFixedStatus(row)) return true;
   var dateCell = row.cells[9];
-  return dateCell ? isTodayDefectDateText(dateCell.textContent) : false;
+  if(dateCell && isTodayDefectDateText(dateCell.textContent)) return true;
+  var key = getDefectLogJiraKey(row);
+  var meta = key ? getIssueMeta(key) : null;
+  if(meta && isIssueFixedToday(meta)) return true;
+  if(meta && isCanceledJiraStatus(meta.status) && isIssueCanceledToday(meta)) return true;
+  return false;
+}
+
+function purgeStaleFixedRowsFromTable(tableId){
+  var tbl = document.getElementById(tableId);
+  if(!tbl) return;
+  for(var i = tbl.rows.length - 2; i >= 1; i--){
+    var row = tbl.rows[i];
+    if(!row || isPlaceholderRow(row)) continue;
+    if(!isRowFixedStatus(row)) continue;
+    var dateCell = row.cells[9];
+    if(dateCell && isTodayDefectDateText(dateCell.textContent)) continue;
+    var key = getDefectLogJiraKey(row);
+    var meta = key ? getIssueMeta(key) : null;
+    if(meta && isIssueFixedToday(meta)) continue;
+    row.remove();
+  }
 }
 
 function purgeStaleDefectLogRows(){
+  purgeStaleFixedRowsFromTable('tbl36');
+  // Also drop stale canceled rows whose date is not today
   var tbl = document.getElementById('tbl36');
   if(!tbl) return;
-  var rows = tbl.querySelectorAll('tr');
-  if(rows.length < 2) return;
-  for(var i = 1; i < rows.length - 1; i++){
-    var row = rows[i];
-    if(row.getAttribute('data-tracker-sync') !== 'true') continue;
+  for(var i = tbl.rows.length - 2; i >= 1; i--){
+    var row = tbl.rows[i];
+    if(!row || isPlaceholderRow(row)) continue;
     var statusCell = row.cells[7];
     if(!statusCell) continue;
     var rawStatus = row.getAttribute('data-jira-status') || statusCell.textContent;
     var s = normalizeJiraStatusName(rawStatus);
     var label = (statusCell.textContent || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
-    var isFixed = s === 'createprdpr' || s === 'done' || label === 'fixed';
     var isCanceled = s === 'canceled' || s === 'cancelled' || label === 'canceled' || label === 'cancelled';
-    if(!isFixed && !isCanceled) continue;
+    if(!isCanceled) continue;
     var dateCell = row.cells[9];
     if(dateCell && isTodayDefectDateText(dateCell.textContent)) continue;
+    var key = getDefectLogJiraKey(row);
+    var meta = key ? getIssueMeta(key) : null;
+    if(meta && isIssueCanceledToday(meta)) continue;
     row.remove();
   }
 }
 
-function dedupeDefectLogRows(){
-  var tbl = document.getElementById('tbl36');
+function dedupeIssueRowsByKey(tableId){
+  var tbl = document.getElementById(tableId);
   if(!tbl) return;
-  var rows = tbl.querySelectorAll('tr');
-  if(rows.length < 3) return;
   var seen = {};
-  for(var i = 1; i < rows.length - 1; i++){
-    var key = getDefectLogJiraKey(rows[i]);
+  for(var i = 1; i < tbl.rows.length; i++){
+    var row = tbl.rows[i];
+    if(!row || isPlaceholderRow(row)) continue;
+    var key = normalizeIssueKey(getDefectLogJiraKey(row));
     if(!key) continue;
-    if(seen[key]) rows[i].remove();
-    else seen[key] = true;
+    var norm = key.toUpperCase();
+    if(seen[norm]){
+      row.remove();
+      i--;
+      continue;
+    }
+    seen[norm] = true;
   }
+}
+
+function dedupeDefectLogRows(){
+  dedupeIssueRowsByKey('tbl36');
+}
+
+function purgeAndDedupeIssueSections(){
+  purgeStaleDefectLogRows();
+  purgeStaleFixedRowsFromTable('tblEnhancements');
+  purgeStaleFixedRowsFromTable('tblSalesPortalEnhancements');
+  dedupeIssueRowsByKey('tbl36');
+  dedupeIssueRowsByKey('tblEnhancements');
+  dedupeIssueRowsByKey('tblSalesPortalEnhancements');
+  dedupeTrackerIssueIds();
+}
+
+function dedupeTrackerIssueIds(){
+  var tbl = document.getElementById('tbl33');
+  if(!tbl) return;
+  for(var i = 0; i < tbl.rows.length; i++){
+    var row = tbl.rows[i];
+    var cell = row.cells[2];
+    if(!cell) continue;
+    var entries = dedupeEntriesByKey(parseJiraEntriesFromCell(cell));
+    if(!entries.length){
+      if((cell.textContent || '').replace(/\u00a0/g, ' ').trim()) cell.innerHTML = '';
+      continue;
+    }
+    renderJiraLinksInCell(cell, entries);
+    if(row.cells[1]) row.cells[1].textContent = String(entries.length);
+  }
+  updateTotalActiveDefectsFromTracker();
 }
 
 function repairTrackerRowLabels(){
@@ -3471,10 +3577,16 @@ function syncEnhancementsFromIssues(issues){
     rows = tbl.querySelectorAll('tr');
     var placeholderRow = rows[rows.length - 1];
     var stripe = false;
-    (issues || []).forEach(function(iss){
+    var seen = {};
+    uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
       if(!isEnhancementEligibleIssue(iss)) return;
       if(isSalesPortalModule(iss)) return;
+      var key = normalizeIssueKey(iss.key);
+      if(!key) return;
+      var norm = key.toUpperCase();
+      if(seen[norm]) return;
+      seen[norm] = true;
       stripe = !stripe;
       var newRow = createSyncedDefectRow(issueToEntry(iss, 'other'), stripe ? 'background:#f5f3ff;' : '');
       newRow.setAttribute('data-enhancement-sync', 'true');
@@ -3482,6 +3594,8 @@ function syncEnhancementsFromIssues(issues){
       updateDefectRowFromIssue(newRow, iss, 'other');
       placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
     });
+    purgeStaleFixedRowsFromTable('tblEnhancements');
+    dedupeIssueRowsByKey('tblEnhancements');
   } finally {
     syncingEnhancements = false;
   }
@@ -3501,10 +3615,16 @@ function syncSalesPortalEnhancementsFromIssues(issues){
     rows = tbl.querySelectorAll('tr');
     var placeholderRow = rows[rows.length - 1];
     var stripe = false;
-    (issues || []).forEach(function(iss){
+    var seen = {};
+    uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
       if(!isEnhancementEligibleIssue(iss)) return;
       if(!isSalesPortalModule(iss)) return;
+      var key = normalizeIssueKey(iss.key);
+      if(!key) return;
+      var norm = key.toUpperCase();
+      if(seen[norm]) return;
+      seen[norm] = true;
       stripe = !stripe;
       var newRow = createSyncedDefectRow(issueToEntry(iss, 'other'), stripe ? 'background:#f0fdfa;' : '');
       newRow.setAttribute('data-enhancement-sync', 'true');
@@ -3515,6 +3635,8 @@ function syncSalesPortalEnhancementsFromIssues(issues){
       });
       placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
     });
+    purgeStaleFixedRowsFromTable('tblSalesPortalEnhancements');
+    dedupeIssueRowsByKey('tblSalesPortalEnhancements');
   } finally {
     syncingSalesPortalEnhancements = false;
   }
@@ -3538,17 +3660,21 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
     placeholderRow = rows[rows.length - 1];
 
     var stripe = false;
+    var seen = {};
     Object.keys(issueMap).forEach(function(k){
       var iss = issueMap[k];
       if((iss.source || syncSource) !== syncSource) return;
       if(!isDefectLogEligible(iss)) return;
+      var key = normalizeIssueKey(iss.key);
+      if(!key || seen[key.toUpperCase()]) return;
+      seen[key.toUpperCase()] = true;
       stripe = !stripe;
       var newRow = createSyncedDefectRow(issueToEntry(iss, bucketIssueByStatus(iss)), stripe ? 'background:#fdecee;' : '');
       newRow.setAttribute('data-issue-sync-source', syncSource);
       updateDefectRowFromIssue(newRow, iss, bucketIssueByStatus(iss));
       placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
     });
-    dedupeDefectLogRows();
+    purgeAndDedupeIssueSections();
   } finally {
     syncingDefectLog = false;
   }
@@ -3567,6 +3693,7 @@ function applyJiraPayload(payload){
       issue.timestamp = formatIssueDate(issue.updated || issue.created);
     }
   });
+  fixedTodayIssues = fixedTodayIssues.filter(isIssueFixedToday);
   var openIssues = filterReportIssues(payload.openToDoIssues || payload.openIssues || [], 'jira');
   var regressionIssues = filterReportIssues(payload.regressionIssues || [], 'jira');
   regressionIssues.forEach(function(issue){ issue.regression = true; });
@@ -3595,8 +3722,7 @@ function applyJiraPayload(payload){
   lastJiraIssueMap = trackerMap;
   applySyncDataToTracker(trackerMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
   syncDefectLogFromIssueMap(defectMap, 'jira');
-  purgeStaleDefectLogRows();
-  dedupeDefectLogRows();
+  purgeAndDedupeIssueSections();
   scheduleDefectLogSync();
   if(repairEnhancementsSection() || repairSalesPortalEnhancementsSection()){
     initOutlookSections();
@@ -3604,6 +3730,7 @@ function applyJiraPayload(payload){
   }
   syncEnhancementsFromIssues(payload.enhancementIssues || []);
   syncSalesPortalEnhancementsFromIssues(payload.enhancementIssues || []);
+  purgeAndDedupeIssueSections();
   scheduleAutoSave();
 }
 
@@ -3717,6 +3844,7 @@ function applyAdoBugsPayload(payload){
   lastAdoIssueMap = trackerMap;
   applySyncDataToTracker(trackerMap, todayIssues, 'ado');
   syncDefectLogFromIssueMap(defectMap, 'ado');
+  purgeAndDedupeIssueSections();
   scheduleDefectLogSync();
   scheduleAutoSave();
 }
@@ -5850,7 +5978,7 @@ function getTrackerSyncEntries(){
     if(!map[entry.key]) map[entry.key] = entry;
     else if(entry.source === 'fixed') map[entry.key] = entry;
   });
-  return Object.keys(map).map(function(k){ return map[k]; });
+  return dedupeEntriesByKey(Object.keys(map).map(function(k){ return map[k]; }));
 }
 
 function isTrackerSyncJiraCell(el){
@@ -5979,16 +6107,18 @@ function syncDefectLogFromTracker(){
       var entryMeta = entry.issue || getIssueMeta(entry.key);
       var entryEligible;
       if(entryMeta) entryEligible = isDefectLogEligible(entryMeta);
-      else if(isFixedOrCanceledStatusName(entry.status)) entryEligible = false;
+      else if(isFixedOrCanceledStatusName(entry.status) || isFixedOrCanceledStatusName(entry.statusLabel)) entryEligible = false;
       else entryEligible = !isClosedJiraStatus(entry.status);
       if(!entryEligible) return;
-      if(existingKeys[entry.key]) return;
+      var entryKey = normalizeIssueKey(entry.key) || String(entry.key || '');
+      if(!entryKey || existingKeys[entryKey] || existingKeys[entryKey.toUpperCase()]) return;
       stripe = !stripe;
       var newRow = createSyncedDefectRow(entry, stripe ? 'background:#fdecee;' : '');
       placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
-      existingKeys[entry.key] = newRow;
+      existingKeys[entryKey] = newRow;
+      existingKeys[entryKey.toUpperCase()] = newRow;
     });
-    dedupeDefectLogRows();
+    purgeAndDedupeIssueSections();
   } finally {
     syncingDefectLog = false;
   }
@@ -6116,8 +6246,7 @@ document.addEventListener('DOMContentLoaded', function(){
   repairTrackerRowLabels();
   repairSummaryMetricRows();
   repairDefectLogPrColumn();
-  purgeStaleDefectLogRows();
-  dedupeDefectLogRows();
+  purgeAndDedupeIssueSections();
   var pageOneRepaired = repairPageOneLayout();
   var layoutRepaired = repairCorruptedReportIfNeeded();
   var addedEnhancements = repairEnhancementsSection();
