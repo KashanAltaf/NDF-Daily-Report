@@ -52,7 +52,8 @@ function fixedTodayClause() {
 function buildBaseJqlParts() {
   var parts = [
     'project = ' + JIRA_PROJECT,
-    'issuetype = Bug',
+    // Sub-tasks follow the same defect log + bug tracker pipeline as Bugs
+    '(issuetype = Bug OR issuetype in subTaskIssueTypes())',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
