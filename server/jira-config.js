@@ -24,6 +24,8 @@ const STATUS = {
 };
 
 const OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE];
+/** Sub-task default workflow uses In Progress; treat like open (pending) */
+const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress'];
 /** Create-PRD-PR and Done both display as Fixed in the report */
 const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
@@ -52,8 +54,8 @@ function fixedTodayClause() {
 function buildBaseJqlParts() {
   var parts = [
     'project = ' + JIRA_PROJECT,
-    // Sub-tasks follow the same defect log + bug tracker pipeline as Bugs
-    '(issuetype = Bug OR issuetype in subTaskIssueTypes())',
+    // Sub-task uses the same defect log + bug tracker pipeline as Bug
+    'issuetype in (Bug, "Sub-task")',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
@@ -75,15 +77,15 @@ function todayJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-function openStatusesInJql() {
-  return OPEN_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
+function defectOpenStatusesInJql() {
+  return SUBTASK_OPEN_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
 }
 
-/** Open bugs since cutoff — To Do or Bug/Issue */
+/** Open bugs since cutoff — To Do, Bug/Issue, or Sub-task In Progress */
 function openBugsJql(extra) {
   var jql = BASE_JQL +
     ' AND created >= "' + OPEN_BUGS_SINCE + '"' +
-    ' AND status in (' + openStatusesInJql() + ')';
+    ' AND status in (' + defectOpenStatusesInJql() + ')';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
@@ -91,7 +93,7 @@ function openBugsJql(extra) {
 /** Today's bugs for defect log — open statuses created today, Fixed/Done today, or Canceled today */
 function todayDefectLogJql(extra) {
   var jql = BASE_JQL + ' AND (' +
-    '(created >= startOfDay() AND status in (' + openStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
+    '(created >= startOfDay() AND status in (' + defectOpenStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
     ' OR status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.CANCELED + '" during (startOfDay(), now())' +

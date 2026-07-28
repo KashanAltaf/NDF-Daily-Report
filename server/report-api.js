@@ -48,7 +48,7 @@ function normalizeStatusName(name) {
 
 function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
-  if (s === 'todo' || s === 'bugissue') return 'open';
+  if (s === 'todo' || s === 'bugissue' || s === 'inprogress') return 'open';
   if (s === 'createprdpr' || s === 'done') return 'fixed';
   if (s === 'uattesting') return 'retest';
   if (s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';

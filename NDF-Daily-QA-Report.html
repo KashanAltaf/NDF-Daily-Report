@@ -2911,7 +2911,8 @@ function fillTrackerRowByLabel(label, issues){
 }
 
 function isOpenJiraStatusName(s){
-  return s === 'todo' || s === 'bugissue';
+  // In Progress is the Sub-task equivalent of open / pending
+  return s === 'todo' || s === 'bugissue' || s === 'inprogress';
 }
 
 function bucketIssueByStatus(issue){
