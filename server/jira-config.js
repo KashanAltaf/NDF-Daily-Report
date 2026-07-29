@@ -68,11 +68,11 @@ const OPEN_BUGS_SINCE = process.env.JIRA_OPEN_BUGS_SINCE || '2026-01-01';
 const ENHANCEMENTS_SINCE = (process.env.JIRA_ENHANCEMENTS_SINCE || '2026-01-01').trim();
 const GITHUB_PR_URL_UAT_FIELD = process.env.JIRA_GITHUB_PR_URL_UAT_FIELD || 'customfield_10649';
 
-/** New bugs raised today — To Do only, created today */
+/** New bugs raised today — To Do or Sub-task In Progress, created today */
 function todayJql(extra) {
   var jql = BASE_JQL +
     ' AND created >= startOfDay()' +
-    ' AND status = "' + STATUS.OPEN + '"';
+    ' AND status in ("' + STATUS.OPEN + '", "In Progress")';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
