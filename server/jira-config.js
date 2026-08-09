@@ -5,7 +5,16 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env'
 const JIRA_BASE_URL = (process.env.JIRA_BASE_URL || 'https://namipay-team.atlassian.net').replace(/\/$/, '');
 const JIRA_EMAIL = process.env.JIRA_EMAIL || '';
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || '';
-const JIRA_PROJECT = process.env.JIRA_PROJECT || 'PB';
+/** Comma-separated Jira project keys (PB + Space Merchant Portal / POR) */
+const JIRA_PROJECTS = (process.env.JIRA_PROJECT || 'PB,POR')
+  .split(',')
+  .map(function (s) { return s.trim(); })
+  .filter(Boolean);
+const JIRA_PROJECT = JIRA_PROJECTS[0] || 'PB';
+/** Default report module when summary has no [Module] prefix */
+const PROJECT_MODULE_DEFAULTS = {
+  POR: 'Space Merchant Portal'
+};
 
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
 
@@ -40,6 +49,16 @@ function fixedStatusesInJql() {
   return FIXED_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
 }
 
+function projectJql() {
+  if (JIRA_PROJECTS.length <= 1) return 'project = ' + JIRA_PROJECT;
+  return 'project in (' + JIRA_PROJECTS.join(', ') + ')';
+}
+
+function defaultModuleForProject(projectKey) {
+  if (!projectKey) return '';
+  return PROJECT_MODULE_DEFAULTS[String(projectKey).toUpperCase()] || '';
+}
+
 function fixedTodayClause() {
   return '(' +
     'status in (' + fixedStatusesInJql() + ')' +
@@ -53,7 +72,7 @@ function fixedTodayClause() {
 
 function buildBaseJqlParts() {
   var parts = [
-    'project = ' + JIRA_PROJECT,
+    projectJql(),
     // Sub-task uses the same defect log + bug tracker pipeline as Bug
     'issuetype in (Bug, "Sub-task")',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')'
@@ -122,7 +141,7 @@ function canceledTodayJql(extra) {
 /** Enhancements — QA-reported Bug/Task in IMPROVEMENT, or Task in To Do, since cutoff */
 function enhancementsJql(extra) {
   var parts = [
-    'project = ' + JIRA_PROJECT,
+    projectJql(),
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'created >= "' + ENHANCEMENTS_SINCE + '"',
     '((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))'
@@ -136,7 +155,7 @@ function enhancementsJql(extra) {
 /** Enhancement tasks fixed today — Task moved to Create-PRD-PR or Done today */
 function enhancementsFixedTodayJql(extra) {
   var parts = [
-    'project = ' + JIRA_PROJECT,
+    projectJql(),
     'issuetype = Task',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'status in (' + fixedStatusesInJql() + ')',
@@ -172,6 +191,8 @@ module.exports = {
   JIRA_EMAIL,
   JIRA_API_TOKEN,
   JIRA_PROJECT,
+  JIRA_PROJECTS,
+  PROJECT_MODULE_DEFAULTS,
   REPORTERS,
   STATUS,
   OPEN_STATUSES,
@@ -182,6 +203,8 @@ module.exports = {
   OPEN_BUGS_SINCE,
   ENHANCEMENTS_SINCE,
   GITHUB_PR_URL_UAT_FIELD,
+  projectJql,
+  defaultModuleForProject,
   todayJql,
   openBugsJql,
   todayDefectLogJql,

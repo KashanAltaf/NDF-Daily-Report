@@ -20,11 +20,14 @@ function mapIssue(issue) {
   var parsed = jiraParse.parseSummaryModule(f.summary || '');
   var githubPrUrl = jiraParse.extractUrlField(f[cfg.GITHUB_PR_URL_UAT_FIELD]);
   var issueType = f.issuetype && f.issuetype.name ? f.issuetype.name : '';
+  var projectKey = (f.project && f.project.key) || String(issue.key || '').split('-')[0] || '';
+  var moduleName = parsed.module || cfg.defaultModuleForProject(projectKey) || '';
   return {
     key: issue.key,
     url: cfg.browseUrl(issue.key),
     summary: parsed.summary,
-    module: parsed.module,
+    module: moduleName,
+    project: projectKey,
     status: status,
     issueType: issueType,
     priority: priority,
@@ -91,7 +94,7 @@ async function jiraSearch(jql) {
     throw err;
   }
 
-  var fields = ['summary', 'status', 'priority', 'description', 'assignee', 'reporter', 'created', 'updated', 'issuetype', cfg.GITHUB_PR_URL_UAT_FIELD];
+  var fields = ['summary', 'status', 'priority', 'description', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
   var attempts = [
     {
       url: cfg.JIRA_BASE_URL + '/rest/api/3/search/jql',
@@ -256,7 +259,8 @@ function getJiraHealth() {
     ok: true,
     configured: !!(cfg.JIRA_EMAIL && cfg.JIRA_API_TOKEN),
     baseUrl: cfg.JIRA_BASE_URL,
-    project: cfg.JIRA_PROJECT
+    project: cfg.JIRA_PROJECT,
+    projects: cfg.JIRA_PROJECTS
   };
 }
 
