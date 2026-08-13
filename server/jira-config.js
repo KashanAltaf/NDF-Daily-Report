@@ -27,7 +27,6 @@ const STATUS = {
   FIXED: 'Create-PRD-PR',
   DONE: 'Done',
   RETEST: 'UAT-Testing',
-  DEPLOYMENT: 'UAT-Deployment',
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
   IMPROVEMENT: 'IMPROVEMENT'
@@ -101,10 +100,6 @@ function defectOpenStatusesInJql() {
   return SUBTASK_OPEN_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
 }
 
-function uatActiveStatusesInJql() {
-  return '"' + STATUS.RETEST + '", "' + STATUS.DEPLOYMENT + '"';
-}
-
 /** Open bugs since cutoff — To Do, Bug/Issue, or Sub-task In Progress */
 function openBugsJql(extra) {
   var jql = BASE_JQL +
@@ -114,11 +109,10 @@ function openBugsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-/** Today's bugs for defect log — open statuses created today, active UAT-Testing / UAT-Deployment, Fixed/Done today, or Canceled today */
+/** Today's bugs for defect log — open statuses created today, Fixed/Done today, or Canceled today */
 function todayDefectLogJql(extra) {
   var jql = BASE_JQL + ' AND (' +
     '(created >= startOfDay() AND status in (' + defectOpenStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
-    ' OR status in (' + uatActiveStatusesInJql() + ')' +
     ' OR status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.CANCELED + '" during (startOfDay(), now())' +
