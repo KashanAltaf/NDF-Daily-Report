@@ -17,7 +17,6 @@ const PROJECT_MODULE_DEFAULTS = {
 };
 
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
-const MERCHANT_IMPROVEMENT_REPORTER = 'Kashan Altaf';
 
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
 
@@ -146,22 +145,16 @@ function canceledTodayJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Enhancements — QA-reported Bug/Task in IMPROVEMENT, or Task in To Do, since cutoff.
- *  Also includes POR IMPROVEMENT reported by Kashan Altaf (Bug / Task / Sub-task). */
+/** Enhancements — same project/reporter scope as defect log; IMPROVEMENT or Task */
 function enhancementsJql(extra) {
   var parts = [
     projectJql(),
+    'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'created >= "' + ENHANCEMENTS_SINCE + '"',
+    'issuetype in (Bug, Task, "Sub-task")',
     '(' +
-      '(' +
-        'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
-        ' AND ((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))' +
-      ') OR (' +
-        'project = POR' +
-        ' AND status = "' + STATUS.IMPROVEMENT + '"' +
-        ' AND reporter = "' + MERCHANT_IMPROVEMENT_REPORTER + '"' +
-        ' AND issuetype in (Bug, Task, "Sub-task")' +
-      ')' +
+      'status = "' + STATUS.IMPROVEMENT + '"' +
+      ' OR (issuetype = Task AND status not in (' + excludedStatusesInJql() + ', "' + STATUS.DONE + '"))' +
     ')'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
@@ -212,7 +205,6 @@ module.exports = {
   JIRA_PROJECTS,
   PROJECT_MODULE_DEFAULTS,
   REPORTERS,
-  MERCHANT_IMPROVEMENT_REPORTER,
   STATUS,
   OPEN_STATUSES,
   FIXED_STATUSES,

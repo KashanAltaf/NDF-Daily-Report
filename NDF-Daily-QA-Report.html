@@ -2737,14 +2737,11 @@ function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
-  var reporter = String(issue.reporter || '').trim().toLowerCase();
-  var isPor = String(issue.project || issue.key || '').toUpperCase().indexOf('POR') === 0;
-  if(s === 'improvement'){
-    if(isPor) return reporter === 'kashan altaf';
-    return type === 'bug' || type === 'task';
+  if(s === 'improvement') return true;
+  if(type === 'task'){
+    if(s === 'todo' || s === 'inprogress' || s === 'bugissue' || s === 'improvement') return true;
+    if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
   }
-  if(s === 'todo' && type === 'task') return true;
-  if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
   return false;
 }
 
@@ -2755,8 +2752,9 @@ function getIssueModuleName(issue){
 }
 
 function isSalesPortalModule(issue){
-  var moduleName = getIssueModuleName(issue).toLowerCase();
-  return moduleName === 'sales portal' || moduleName === 'kyc';
+  var moduleName = getIssueModuleName(issue).toLowerCase().replace(/[_-]+/g, ' ');
+  if(!moduleName) moduleName = String((parseSummaryModule(issue.summary || '').module) || '').toLowerCase();
+  return /\bkyc\b/.test(moduleName) || /sales\s*portal/.test(moduleName);
 }
 
 function isReportExcludedJiraIssue(issue){
