@@ -149,34 +149,23 @@ function canceledTodayJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Enhancements — PB only; IMPROVEMENT (any type) or active Task */
+/** Enhancements — PB only. Task in To Do, or Bug/Task in IMPROVEMENT. No defect-log text filter. */
 function enhancementsJql(extra) {
-  var parts = [
-    enhancementsProjectJql(),
-    'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
-    'created >= "' + ENHANCEMENTS_SINCE + '"',
-    '(' +
-      'status = "' + STATUS.IMPROVEMENT + '"' +
-      ' OR (issuetype = Task AND status not in (' + excludedStatusesInJql() + ', "' + STATUS.DONE + '"))' +
-    ')'
-  ];
-  if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
-  var jql = parts.join(' AND ');
+  var jql = enhancementsProjectJql() +
+    ' AND reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
+    ' AND created >= "' + ENHANCEMENTS_SINCE + '"' +
+    ' AND ((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
 
 /** Enhancement tasks fixed today — PB Task moved to Create-PRD-PR or Done today */
 function enhancementsFixedTodayJql(extra) {
-  var parts = [
-    enhancementsProjectJql(),
-    'issuetype = Task',
-    'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
-    'status in (' + fixedStatusesInJql() + ')',
-    '(status changed to "' + STATUS.FIXED + '" during (startOfDay(), now()) OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now()) OR created >= startOfDay())'
-  ];
-  if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
-  var jql = parts.join(' AND ');
+  var jql = enhancementsProjectJql() +
+    ' AND issuetype = Task' +
+    ' AND reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
+    ' AND status in (' + fixedStatusesInJql() + ')' +
+    ' AND (status changed to "' + STATUS.FIXED + '" during (startOfDay(), now()) OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now()) OR created >= startOfDay())';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY updated DESC';
 }

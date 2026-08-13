@@ -17,16 +17,19 @@ function mapIssue(issue) {
   var priority = f.priority && f.priority.name ? f.priority.name : '';
   var assignee = f.assignee && f.assignee.displayName ? f.assignee.displayName : '';
   var reporter = f.reporter && f.reporter.displayName ? f.reporter.displayName : '';
-  var parsed = jiraParse.parseSummaryModule(f.summary || '');
+  var rawSummary = f.summary || '';
+  var parsed = jiraParse.parseSummaryModule(rawSummary);
   var githubPrUrl = jiraParse.extractPrUrl(f, cfg.GITHUB_PR_URL_UAT_FIELD);
   var issueType = f.issuetype && f.issuetype.name ? f.issuetype.name : '';
   var projectKey = (f.project && f.project.key) || String(issue.key || '').split('-')[0] || '';
-  var moduleName = parsed.module || cfg.defaultModuleForProject(projectKey) || '';
+  var moduleName = parsed.module || '';
+  if (projectKey !== 'PB') moduleName = moduleName || cfg.defaultModuleForProject(projectKey) || '';
   return {
     key: issue.key,
     id: issue.id || '',
     url: cfg.browseUrl(issue.key),
-    summary: parsed.summary,
+    summary: parsed.summary || rawSummary,
+    rawSummary: rawSummary,
     module: moduleName,
     project: projectKey,
     status: status,

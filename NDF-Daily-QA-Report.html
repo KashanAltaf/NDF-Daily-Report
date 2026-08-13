@@ -2733,34 +2733,29 @@ function isImprovementJiraStatus(status){
   return normalizeJiraStatusName(status) === 'improvement';
 }
 
-function isPbEnhancementIssue(issue){
-  var project = String((issue && (issue.project || issue.key)) || '').toUpperCase();
-  return project === 'PB' || project.indexOf('PB-') === 0;
-}
-
 function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
-  if(!isPbEnhancementIssue(issue)) return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
-  if(s === 'improvement') return true;
-  if(type === 'task'){
-    if(s === 'todo' || s === 'inprogress' || s === 'bugissue' || s === 'improvement') return true;
-    if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
-  }
+  if(s === 'improvement') return type === 'bug' || type === 'task';
+  if(s === 'todo' && type === 'task') return true;
+  if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
   return false;
 }
 
 function getIssueModuleName(issue){
   if(!issue) return '';
   if(issue.module) return String(issue.module).trim();
-  return String((parseSummaryModule(issue.summary || '').module) || '').trim();
+  var fromRaw = parseSummaryModule(issue.rawSummary || issue.summary || '').module;
+  return String(fromRaw || '').trim();
 }
 
 function isSalesPortalModule(issue){
-  var moduleName = getIssueModuleName(issue).toLowerCase().replace(/[_-]+/g, ' ');
-  if(!moduleName) moduleName = String((parseSummaryModule(issue.summary || '').module) || '').toLowerCase();
-  return /\bkyc\b/.test(moduleName) || /sales\s*portal/.test(moduleName);
+  var moduleName = getIssueModuleName(issue).toLowerCase().replace(/[_\/,-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if(!moduleName) return false;
+  var hasSales = moduleName.indexOf('sales portal') >= 0;
+  var hasKyc = moduleName === 'kyc' || /(^|\s)kyc(\s|$)/.test(moduleName);
+  return hasSales || hasKyc;
 }
 
 function isReportExcludedJiraIssue(issue){
