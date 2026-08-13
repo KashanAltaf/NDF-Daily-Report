@@ -2920,7 +2920,7 @@ function bucketIssueByStatus(issue){
   var s = normalizeJiraStatusName(issue.status);
   if(isOpenJiraStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
-  if(s === 'uattesting') return 'retest';
+  if(s === 'uattesting' || s === 'uatdeployment') return 'retest';
   if(s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
   return 'other';
 }
@@ -2956,6 +2956,7 @@ function formatStatusLabel(status, issue){
   if(s === 'canceled' || s === 'cancelled' || /^cancel(?:ed|led)?$/i.test(String(status || '').trim())) return 'Canceled';
   if(s === 'fixed' || /^fixed$/i.test(String(status || '').trim())) return 'Fixed';
   if(s === 'open' || /^open$/i.test(String(status || '').trim())) return 'Open';
+  if(s === 'uatdeployment' || /^awaiting\s*pr\s*deployment$/i.test(String(status || '').trim())) return 'Awaiting PR Deployment';
   if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'Open';
   var label = String(status || '').trim();
   if(/^to[\s-]?do$/i.test(label)) return 'Open';
@@ -3031,7 +3032,7 @@ function isDefectLogEligible(issue){
   if(s === 'improvement' || s === 'uatprapproval') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
   if(isOpenJiraStatusName(s)) return true;
-  if(s === 'uattesting') return true;
+  if(s === 'uattesting' || s === 'uatdeployment') return true;
   if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
   return false;
 }
@@ -3183,7 +3184,7 @@ function applyStatusCellStyle(cell, status, issue){
     bg = '#cfe2ff'; color = '#0d3d7a';
   } else if(s === 'createprdpr' || s === 'done' || statusKey === 'fixed' || statusKey === 'done' || labelKey === 'fixed'){
     bg = '#c8e6c9'; color = '#1b5e20';
-  } else if(labelKey === 'inretest' || s === 'uattesting' || /retest|verify|uat/.test(statusKey)){
+  } else if(labelKey === 'awaitingprdeployment' || s === 'uatdeployment' || labelKey === 'inretest' || s === 'uattesting' || /retest|verify|uat/.test(statusKey)){
     bg = '#fff3cd'; color = '#7a5c00';
   } else if(s === 'canceled' || s === 'cancelled' || labelKey === 'canceled' || labelKey === 'cancelled'){
     bg = '#e5e7eb'; color = '#374151';

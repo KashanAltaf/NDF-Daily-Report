@@ -53,7 +53,7 @@ function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
   if (s === 'todo' || s === 'bugissue' || s === 'inprogress') return 'open';
   if (s === 'createprdpr' || s === 'done') return 'fixed';
-  if (s === 'uattesting') return 'retest';
+  if (s === 'uattesting' || s === 'uatdeployment') return 'retest';
   if (s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
   return 'other';
 }

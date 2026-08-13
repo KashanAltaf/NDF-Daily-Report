@@ -27,6 +27,7 @@ const STATUS = {
   FIXED: 'Create-PRD-PR',
   DONE: 'Done',
   RETEST: 'UAT-Testing',
+  DEPLOYMENT: 'UAT-Deployment',
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
   IMPROVEMENT: 'IMPROVEMENT'
