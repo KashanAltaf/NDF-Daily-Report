@@ -2919,7 +2919,7 @@ function hasAttachedPr(issue){
   if(!issue) return false;
   var url = String(issue.githubPrUrl || issue.prUrl || '').trim();
   if(!url || url === '\u2014' || url === '-') return false;
-  return /github\.com\/.+\/pull\//i.test(url) || /\/pull\/\d+/i.test(url) || /^https?:\/\//i.test(url);
+  return /\/pull\/\d+/i.test(url) || /\/merge_requests\/\d+/i.test(url) || /\/pull-requests\//i.test(url) || /^https?:\/\//i.test(url);
 }
 
 function isNewOrOpenIssue(issue){

@@ -18,12 +18,13 @@ function mapIssue(issue) {
   var assignee = f.assignee && f.assignee.displayName ? f.assignee.displayName : '';
   var reporter = f.reporter && f.reporter.displayName ? f.reporter.displayName : '';
   var parsed = jiraParse.parseSummaryModule(f.summary || '');
-  var githubPrUrl = jiraParse.extractUrlField(f[cfg.GITHUB_PR_URL_UAT_FIELD]);
+  var githubPrUrl = jiraParse.extractPrUrl(f, cfg.GITHUB_PR_URL_UAT_FIELD);
   var issueType = f.issuetype && f.issuetype.name ? f.issuetype.name : '';
   var projectKey = (f.project && f.project.key) || String(issue.key || '').split('-')[0] || '';
   var moduleName = parsed.module || cfg.defaultModuleForProject(projectKey) || '';
   return {
     key: issue.key,
+    id: issue.id || '',
     url: cfg.browseUrl(issue.key),
     summary: parsed.summary,
     module: moduleName,
@@ -94,7 +95,7 @@ async function jiraSearch(jql) {
     throw err;
   }
 
-  var fields = ['summary', 'status', 'priority', 'description', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
+  var fields = ['summary', 'status', 'priority', 'description', 'comment', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
   var attempts = [
     {
       url: cfg.JIRA_BASE_URL + '/rest/api/3/search/jql',
@@ -133,6 +134,85 @@ async function jiraSearch(jql) {
   throw lastErr || new Error('Jira search failed');
 }
 
+var prUrlCache = {};
+
+function applyPrUrl(issue, url) {
+  if (!issue || !url) return;
+  issue.githubPrUrl = url;
+  issue.prUrl = url;
+  issue.prLabel = jiraParse.formatPrLinkLabel(url, issue.key);
+}
+
+async function fetchRemotePrUrl(issueKey) {
+  var auth = jiraAuthHeader();
+  if (!auth || !issueKey) return '';
+  var res = await fetch(cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/remotelink', {
+    headers: { Authorization: auth, Accept: 'application/json' }
+  });
+  if (!res.ok) return '';
+  var links = await res.json();
+  if (!Array.isArray(links)) return '';
+  for (var i = 0; i < links.length; i++) {
+    var obj = links[i] && links[i].object ? links[i].object : links[i];
+    var url = (obj && (obj.url || obj.href)) || '';
+    if (jiraParse.isPullRequestUrl(url)) return url;
+  }
+  return '';
+}
+
+async function fetchDevStatusPrUrl(issueId) {
+  var auth = jiraAuthHeader();
+  if (!auth || !issueId) return '';
+  var urls = [
+    cfg.JIRA_BASE_URL + '/rest/dev-status/latest/issue/detail?issueId=' + encodeURIComponent(issueId) + '&applicationType=GitHub&dataType=pullrequest',
+    cfg.JIRA_BASE_URL + '/rest/dev-status/1.0/issue/detail?issueId=' + encodeURIComponent(issueId) + '&applicationType=GitHub&dataType=pullrequest'
+  ];
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      var res = await fetch(urls[i], {
+        headers: { Authorization: auth, Accept: 'application/json' }
+      });
+      if (!res.ok) continue;
+      var data = await res.json();
+      var details = data && data.detail ? data.detail : [];
+      for (var d = 0; d < details.length; d++) {
+        var prs = (details[d] && details[d].pullRequests) || [];
+        for (var p = 0; p < prs.length; p++) {
+          var url = prs[p] && (prs[p].url || prs[p].href);
+          if (jiraParse.isPullRequestUrl(url)) return url;
+        }
+      }
+    } catch (e) {}
+  }
+  return '';
+}
+
+async function enrichIssueWithPrUrl(issue) {
+  if (!issue || issue.prUrl) return issue;
+  if (Object.prototype.hasOwnProperty.call(prUrlCache, issue.key)) {
+    applyPrUrl(issue, prUrlCache[issue.key]);
+    return issue;
+  }
+  var url = '';
+  try { url = await fetchRemotePrUrl(issue.key); } catch (e) { url = ''; }
+  if (!url) {
+    try { url = await fetchDevStatusPrUrl(issue.id); } catch (e) { url = ''; }
+  }
+  prUrlCache[issue.key] = url || '';
+  applyPrUrl(issue, url);
+  return issue;
+}
+
+async function enrichIssuesWithPrUrls(issues) {
+  var list = issues || [];
+  var pending = [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && !list[i].prUrl) pending.push(enrichIssueWithPrUrl(list[i]));
+  }
+  if (pending.length) await Promise.all(pending);
+  return list;
+}
+
 function mergeIssuesByKey(primary, secondary) {
   var map = {};
   (primary || []).forEach(function (issue) { map[issue.key] = issue; });
@@ -151,6 +231,7 @@ function bucketIssues(issues) {
 }
 
 async function fetchReportIssues() {
+  prUrlCache = {};
   var todayJqlStr = cfg.todayJql();
   var openJqlStr = cfg.openBugsJql();
   var todayDefectJqlStr = cfg.todayDefectLogJql();
@@ -213,6 +294,16 @@ async function fetchReportIssues() {
     if (!isDoneStatus(issue.status)) return true;
     return !!enhancementFixedTodayKeys[issue.key];
   });
+
+  await enrichIssuesWithPrUrls(todayIssues);
+  await enrichIssuesWithPrUrls(openToDoIssues);
+  await enrichIssuesWithPrUrls(todayDefectIssues);
+  await enrichIssuesWithPrUrls(fixedTodayIssues);
+  await enrichIssuesWithPrUrls(canceledTodayIssues);
+  await enrichIssuesWithPrUrls(enhancementIssues);
+  await enrichIssuesWithPrUrls(regressionIssues);
+  await enrichIssuesWithPrUrls(trackerIssues);
+  await enrichIssuesWithPrUrls(defectLogIssues);
 
   return {
     fetchedAt: new Date().toISOString(),

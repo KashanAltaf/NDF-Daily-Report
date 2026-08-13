@@ -144,10 +144,67 @@ function extractUrlField(value) {
   return '';
 }
 
+function normalizePrUrl(url) {
+  var raw = String(url || '').trim();
+  if (!raw) return '';
+  var match = raw.match(/https?:\/\/[^\s"'<>)]+/i);
+  raw = match ? match[0] : raw;
+  return raw.replace(/[.,;]+$/, '');
+}
+
+function isPullRequestUrl(url) {
+  var u = String(url || '');
+  return /\/pull\/\d+/i.test(u) || /\/merge_requests\/\d+/i.test(u) || /bitbucket\.org\/.*\/pull-requests\//i.test(u);
+}
+
+function extractPrUrlFromText(text) {
+  var match = String(text || '').match(/https?:\/\/[^\s"'<>)]+(?:\/pull\/\d+|\/merge_requests\/\d+|\/pull-requests\/\d+)/i);
+  return match ? normalizePrUrl(match[0]) : '';
+}
+
+function walkForPrUrl(value, depth) {
+  if (value == null || depth > 8) return '';
+  if (typeof value === 'string') {
+    var direct = extractUrlField(value);
+    if (isPullRequestUrl(direct)) return normalizePrUrl(direct);
+    return extractPrUrlFromText(value);
+  }
+  if (Array.isArray(value)) {
+    for (var i = 0; i < value.length; i++) {
+      var found = walkForPrUrl(value[i], depth + 1);
+      if (found) return found;
+    }
+    return '';
+  }
+  if (typeof value === 'object') {
+    var url = value.url || value.href || value.objectUrl || '';
+    if (isPullRequestUrl(url)) return normalizePrUrl(url);
+    if (value.marks && Array.isArray(value.marks)) {
+      for (var m = 0; m < value.marks.length; m++) {
+        var href = value.marks[m] && value.marks[m].attrs && value.marks[m].attrs.href;
+        if (isPullRequestUrl(href)) return normalizePrUrl(href);
+      }
+    }
+    var keys = Object.keys(value);
+    for (var k = 0; k < keys.length; k++) {
+      var nested = walkForPrUrl(value[keys[k]], depth + 1);
+      if (nested) return nested;
+    }
+  }
+  return '';
+}
+
+function extractPrUrl(fields, preferredFieldId) {
+  if (!fields) return '';
+  var preferred = extractUrlField(fields[preferredFieldId]);
+  if (preferred) return normalizePrUrl(preferred);
+  return walkForPrUrl(fields, 0);
+}
+
 function formatPrLinkLabel(url, issueKey) {
   var key = String(issueKey || '').trim();
   if (key) return 'PR-' + key;
-  var match = String(url || '').match(/\/pull\/(\d+)/i);
+  var match = String(url || '').match(/\/(?:pull|merge_requests|pull-requests)\/(\d+)/i);
   if (match) return 'PR-' + match[1];
   return 'PR';
 }
@@ -160,5 +217,7 @@ module.exports = {
   parseSummaryModule: parseSummaryModule,
   splitReproFragments: splitReproFragments,
   extractUrlField: extractUrlField,
+  extractPrUrl: extractPrUrl,
+  isPullRequestUrl: isPullRequestUrl,
   formatPrLinkLabel: formatPrLinkLabel
 };
