@@ -2733,8 +2733,14 @@ function isImprovementJiraStatus(status){
   return normalizeJiraStatusName(status) === 'improvement';
 }
 
+function isPbEnhancementIssue(issue){
+  var project = String((issue && (issue.project || issue.key)) || '').toUpperCase();
+  return project === 'PB' || project.indexOf('PB-') === 0;
+}
+
 function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
+  if(!isPbEnhancementIssue(issue)) return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return true;

@@ -56,6 +56,10 @@ function projectJql() {
   return 'project in (' + JIRA_PROJECTS.join(', ') + ')';
 }
 
+function enhancementsProjectJql() {
+  return 'project = PB';
+}
+
 function defaultModuleForProject(projectKey) {
   if (!projectKey) return '';
   return PROJECT_MODULE_DEFAULTS[String(projectKey).toUpperCase()] || '';
@@ -145,13 +149,12 @@ function canceledTodayJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Enhancements — same project/reporter scope as defect log; IMPROVEMENT or Task */
+/** Enhancements — PB only; IMPROVEMENT (any type) or active Task */
 function enhancementsJql(extra) {
   var parts = [
-    projectJql(),
+    enhancementsProjectJql(),
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'created >= "' + ENHANCEMENTS_SINCE + '"',
-    'issuetype in (Bug, Task, "Sub-task")',
     '(' +
       'status = "' + STATUS.IMPROVEMENT + '"' +
       ' OR (issuetype = Task AND status not in (' + excludedStatusesInJql() + ', "' + STATUS.DONE + '"))' +
@@ -163,10 +166,10 @@ function enhancementsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-/** Enhancement tasks fixed today — Task moved to Create-PRD-PR or Done today */
+/** Enhancement tasks fixed today — PB Task moved to Create-PRD-PR or Done today */
 function enhancementsFixedTodayJql(extra) {
   var parts = [
-    projectJql(),
+    enhancementsProjectJql(),
     'issuetype = Task',
     'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'status in (' + fixedStatusesInJql() + ')',
