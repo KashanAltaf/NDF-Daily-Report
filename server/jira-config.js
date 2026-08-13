@@ -147,23 +147,20 @@ function canceledTodayJql(extra) {
 }
 
 /** Enhancements — QA-reported Bug/Task in IMPROVEMENT, or Task in To Do, since cutoff.
- *  Merchant (POR / merchant summary) IMPROVEMENT: Kashan Altaf only, including Sub-task. */
+ *  Also includes POR IMPROVEMENT reported by Kashan Altaf (Bug / Task / Sub-task). */
 function enhancementsJql(extra) {
-  var reporters = REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ');
   var parts = [
     projectJql(),
     'created >= "' + ENHANCEMENTS_SINCE + '"',
     '(' +
       '(' +
-        '((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))' +
-        ' AND reporter in (' + reporters + ')' +
-        ' AND NOT (project = POR AND status = "' + STATUS.IMPROVEMENT + '")' +
-        ' AND NOT (summary ~ "merchant" AND status = "' + STATUS.IMPROVEMENT + '")' +
+        'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
+        ' AND ((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))' +
       ') OR (' +
-        'status = "' + STATUS.IMPROVEMENT + '"' +
+        'project = POR' +
+        ' AND status = "' + STATUS.IMPROVEMENT + '"' +
         ' AND reporter = "' + MERCHANT_IMPROVEMENT_REPORTER + '"' +
         ' AND issuetype in (Bug, Task, "Sub-task")' +
-        ' AND (project = POR OR summary ~ "merchant")' +
       ')' +
     ')'
   ];
