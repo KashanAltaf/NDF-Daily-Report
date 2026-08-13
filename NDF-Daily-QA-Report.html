@@ -2929,14 +2929,21 @@ function isNewOrOpenIssue(issue){
   return isOpenJiraStatusName(s) || s === 'open';
 }
 
+function isAwaitingPrDeploymentStatusName(s){
+  return s === 'uatdeployment' || s === 'uatmergeissue';
+}
+
 function isAwaitingPrDeployment(issue){
+  if(!issue) return false;
+  var s = normalizeJiraStatusName(issue.status);
+  if(isAwaitingPrDeploymentStatusName(s)) return true;
   return isNewOrOpenIssue(issue) && hasAttachedPr(issue);
 }
 
 function bucketIssueByStatus(issue){
   if(issue && issue.source === 'ado') return bucketAdoIssue(issue);
   var s = normalizeJiraStatusName(issue.status);
-  if(isOpenJiraStatusName(s)) return 'open';
+  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
   if(s === 'uattesting') return 'retest';
   if(s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
@@ -2969,6 +2976,7 @@ function formatStatusLabel(status, issue){
   if(isAwaitingPrDeployment(issue)) return 'Awaiting PR Deployment';
   if(issue && issue.source === 'ado') return formatAdoStatusLabel(status);
   var s = normalizeJiraStatusName(status);
+  if(isAwaitingPrDeploymentStatusName(s) || /^awaiting\s*pr\s*deployment$/i.test(String(status || '').trim())) return 'Awaiting PR Deployment';
   if(isOpenJiraStatusName(s)) return 'Open';
   if(s === 'createprdpr' || s === 'done') return 'Fixed';
   if(s === 'improvement') return 'Open';
@@ -3049,7 +3057,7 @@ function isDefectLogEligible(issue){
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement' || s === 'uatprapproval') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
-  if(isOpenJiraStatusName(s)) return true;
+  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return true;
   if(s === 'uattesting') return true;
   if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
   return false;
@@ -3198,7 +3206,7 @@ function applyStatusCellStyle(cell, status, issue){
   var statusKey = normalizeJiraStatusName(status);
   var bg = '#ffffff';
   var color = '#222222';
-  if(labelKey === 'awaitingprdeployment' || isAwaitingPrDeployment(issue)){
+  if(labelKey === 'awaitingprdeployment' || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrDeployment(issue)){
     bg = '#fff3cd'; color = '#7a5c00';
   } else if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || labelKey === 'open'){
     bg = '#cfe2ff'; color = '#0d3d7a';

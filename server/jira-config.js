@@ -27,6 +27,8 @@ const STATUS = {
   FIXED: 'Create-PRD-PR',
   DONE: 'Done',
   RETEST: 'UAT-Testing',
+  DEPLOYMENT: 'UAT-Deployment',
+  MERGE: 'UAT-MERGE-ISSUE',
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
   IMPROVEMENT: 'IMPROVEMENT'
@@ -109,10 +111,15 @@ function openBugsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
-/** Today's bugs for defect log — open statuses created today, Fixed/Done today, or Canceled today */
+function awaitingPrDeploymentStatusesInJql() {
+  return '"' + STATUS.DEPLOYMENT + '", "' + STATUS.MERGE + '"';
+}
+
+/** Today's bugs for defect log — open statuses created today, Awaiting PR Deployment statuses, Fixed/Done today, or Canceled today */
 function todayDefectLogJql(extra) {
   var jql = BASE_JQL + ' AND (' +
     '(created >= startOfDay() AND status in (' + defectOpenStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
+    ' OR status in (' + awaitingPrDeploymentStatusesInJql() + ')' +
     ' OR status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.CANCELED + '" during (startOfDay(), now())' +

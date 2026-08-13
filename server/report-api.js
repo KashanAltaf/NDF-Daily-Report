@@ -52,7 +52,7 @@ function normalizeStatusName(name) {
 
 function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
-  if (s === 'todo' || s === 'bugissue' || s === 'inprogress') return 'open';
+  if (s === 'todo' || s === 'bugissue' || s === 'inprogress' || s === 'uatdeployment' || s === 'uatmergeissue') return 'open';
   if (s === 'createprdpr' || s === 'done') return 'fixed';
   if (s === 'uattesting') return 'retest';
   if (s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
@@ -95,7 +95,7 @@ async function jiraSearch(jql) {
     throw err;
   }
 
-  var fields = ['summary', 'status', 'priority', 'description', 'comment', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
+  var fields = ['summary', 'status', 'priority', 'description', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
   var attempts = [
     {
       url: cfg.JIRA_BASE_URL + '/rest/api/3/search/jql',
@@ -295,15 +295,17 @@ async function fetchReportIssues() {
     return !!enhancementFixedTodayKeys[issue.key];
   });
 
-  await enrichIssuesWithPrUrls(todayIssues);
-  await enrichIssuesWithPrUrls(openToDoIssues);
-  await enrichIssuesWithPrUrls(todayDefectIssues);
-  await enrichIssuesWithPrUrls(fixedTodayIssues);
-  await enrichIssuesWithPrUrls(canceledTodayIssues);
-  await enrichIssuesWithPrUrls(enhancementIssues);
-  await enrichIssuesWithPrUrls(regressionIssues);
-  await enrichIssuesWithPrUrls(trackerIssues);
-  await enrichIssuesWithPrUrls(defectLogIssues);
+  try {
+    await enrichIssuesWithPrUrls(todayIssues);
+    await enrichIssuesWithPrUrls(openToDoIssues);
+    await enrichIssuesWithPrUrls(todayDefectIssues);
+    await enrichIssuesWithPrUrls(fixedTodayIssues);
+    await enrichIssuesWithPrUrls(canceledTodayIssues);
+    await enrichIssuesWithPrUrls(enhancementIssues);
+    await enrichIssuesWithPrUrls(regressionIssues);
+    await enrichIssuesWithPrUrls(trackerIssues);
+    await enrichIssuesWithPrUrls(defectLogIssues);
+  } catch (e) {}
 
   return {
     fetchedAt: new Date().toISOString(),
