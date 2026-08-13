@@ -148,7 +148,7 @@ server.listen(PORT, function () {
   console.log('ADO tests: GET http://localhost:' + PORT + '/api/ado/test-summary');
   console.log('Playwright: POST http://localhost:' + PORT + '/api/playwright/import');
   if (auth.isAuthEnabled()) {
-    console.log('Auth: Microsoft Authenticator enabled for ' + auth.maskEmail(cfg.JIRA_EMAIL));
+    console.log('Auth: Microsoft Authenticator enabled for ' + auth.maskEmail(process.env.AUTH_EMAIL || cfg.JIRA_EMAIL));
     console.log('Login: http://localhost:' + PORT + '/login.html');
   } else {
     console.log('Auth: disabled (set AUTH_SECRET + AUTH_TOTP_SECRET to enable)');

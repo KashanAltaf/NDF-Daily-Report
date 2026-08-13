@@ -18,7 +18,7 @@ function getTotpSecret() {
 }
 
 function getAllowedEmail() {
-  return String(process.env.JIRA_EMAIL || '').trim().toLowerCase();
+  return String(process.env.AUTH_EMAIL || process.env.JIRA_EMAIL || '').trim().toLowerCase();
 }
 
 function isAuthEnabled() {
