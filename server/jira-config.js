@@ -17,6 +17,7 @@ const PROJECT_MODULE_DEFAULTS = {
 };
 
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
+const MERCHANT_IMPROVEMENT_REPORTER = 'Kashan Altaf';
 
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
 
@@ -145,13 +146,26 @@ function canceledTodayJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Enhancements — QA-reported Bug/Task in IMPROVEMENT, or Task in To Do, since cutoff */
+/** Enhancements — QA-reported Bug/Task in IMPROVEMENT, or Task in To Do, since cutoff.
+ *  Merchant (POR / merchant summary) IMPROVEMENT: Kashan Altaf only, including Sub-task. */
 function enhancementsJql(extra) {
+  var reporters = REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ');
   var parts = [
     projectJql(),
-    'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')',
     'created >= "' + ENHANCEMENTS_SINCE + '"',
-    '((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))'
+    '(' +
+      '(' +
+        '((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))' +
+        ' AND reporter in (' + reporters + ')' +
+        ' AND NOT (project = POR AND status = "' + STATUS.IMPROVEMENT + '")' +
+        ' AND NOT (summary ~ "merchant" AND status = "' + STATUS.IMPROVEMENT + '")' +
+      ') OR (' +
+        'status = "' + STATUS.IMPROVEMENT + '"' +
+        ' AND reporter = "' + MERCHANT_IMPROVEMENT_REPORTER + '"' +
+        ' AND issuetype in (Bug, Task, "Sub-task")' +
+        ' AND (project = POR OR summary ~ "merchant")' +
+      ')' +
+    ')'
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
   var jql = parts.join(' AND ');
@@ -201,6 +215,7 @@ module.exports = {
   JIRA_PROJECTS,
   PROJECT_MODULE_DEFAULTS,
   REPORTERS,
+  MERCHANT_IMPROVEMENT_REPORTER,
   STATUS,
   OPEN_STATUSES,
   FIXED_STATUSES,

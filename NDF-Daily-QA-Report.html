@@ -2733,11 +2733,26 @@ function isImprovementJiraStatus(status){
   return normalizeJiraStatusName(status) === 'improvement';
 }
 
+function isKashanReporter(issue){
+  return String((issue && issue.reporter) || '').trim().toLowerCase() === 'kashan altaf';
+}
+
+function isMerchantIssue(issue){
+  if(!issue) return false;
+  if(String(issue.project || issue.key || '').toUpperCase().indexOf('POR') === 0) return true;
+  var moduleName = getIssueModuleName(issue).toLowerCase();
+  if(/merchant/.test(moduleName)) return true;
+  return /merchant/i.test(String(issue.summary || ''));
+}
+
 function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
-  if(s === 'improvement') return type === 'bug' || type === 'task';
+  if(s === 'improvement'){
+    if(isMerchantIssue(issue)) return isKashanReporter(issue);
+    return type === 'bug' || type === 'task';
+  }
   if(s === 'todo' && type === 'task') return true;
   if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
   return false;
@@ -2752,6 +2767,10 @@ function getIssueModuleName(issue){
 function isSalesPortalModule(issue){
   var moduleName = getIssueModuleName(issue).toLowerCase();
   return moduleName === 'sales portal' || moduleName === 'kyc';
+}
+
+function isMerchantImprovementIssue(issue){
+  return isMerchantIssue(issue) && isImprovementJiraStatus(issue && issue.status);
 }
 
 function isReportExcludedJiraIssue(issue){
@@ -3646,7 +3665,7 @@ function syncEnhancementsFromIssues(issues){
     uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
       if(!isEnhancementEligibleIssue(iss)) return;
-      if(isSalesPortalModule(iss)) return;
+      if(isSalesPortalModule(iss) || isMerchantImprovementIssue(iss)) return;
       var key = normalizeIssueKey(iss.key);
       if(!key) return;
       var norm = key.toUpperCase();
@@ -3684,7 +3703,7 @@ function syncSalesPortalEnhancementsFromIssues(issues){
     uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
       if(!isEnhancementEligibleIssue(iss)) return;
-      if(!isSalesPortalModule(iss)) return;
+      if(!isSalesPortalModule(iss) && !isMerchantImprovementIssue(iss)) return;
       var key = normalizeIssueKey(iss.key);
       if(!key) return;
       var norm = key.toUpperCase();
