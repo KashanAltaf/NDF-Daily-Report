@@ -2956,8 +2956,8 @@ function formatStatusLabel(status, issue){
   if(s === 'canceled' || s === 'cancelled' || /^cancel(?:ed|led)?$/i.test(String(status || '').trim())) return 'Canceled';
   if(s === 'fixed' || /^fixed$/i.test(String(status || '').trim())) return 'Fixed';
   if(s === 'open' || /^open$/i.test(String(status || '').trim())) return 'Open';
+  if(s === 'uattesting' || /^uat[\s-]?testing$/i.test(String(status || '').trim()) || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'Open';
   if(s === 'uatdeployment' || /^awaiting\s*pr\s*deployment$/i.test(String(status || '').trim())) return 'Awaiting PR Deployment';
-  if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'Open';
   var label = String(status || '').trim();
   if(/^to[\s-]?do$/i.test(label)) return 'Open';
   if(/^bug\s*\/\s*issue$/i.test(label)) return 'Open';
@@ -3180,7 +3180,7 @@ function applyStatusCellStyle(cell, status, issue){
   var statusKey = normalizeJiraStatusName(status);
   var bg = '#ffffff';
   var color = '#222222';
-  if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || labelKey === 'open'){
+  if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || s === 'uattesting' || labelKey === 'open'){
     bg = '#cfe2ff'; color = '#0d3d7a';
   } else if(s === 'createprdpr' || s === 'done' || statusKey === 'fixed' || statusKey === 'done' || labelKey === 'fixed'){
     bg = '#c8e6c9'; color = '#1b5e20';
