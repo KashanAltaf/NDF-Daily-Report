@@ -264,6 +264,23 @@ async function fetchReportIssues() {
     if (type !== 'task' || !isFixedStatus(issue.status)) return true;
     return !!enhancementFixedTodayKeys[issue.key];
   });
+  // Sales Portal / KYC titles that start with "Enhancement" belong in enhancement tables even if Jira status is still open.
+  function isSalesPortalEnhancementIssue(issue) {
+    if (!issue || String(issue.project || '').toUpperCase() !== 'PB') return false;
+    var raw = String(issue.rawSummary || issue.summary || '').toLowerCase();
+    var moduleName = String(issue.module || '').toLowerCase();
+    var title = String(issue.summary || '').replace(/^\[[^\]]+\]\s*[-–—]?\s*/, '').trim().toLowerCase();
+    if (!/^enhancement\b/.test(title) && raw.indexOf('enhancement') < 0) return false;
+    return /sales\s*portal/.test(moduleName + ' ' + raw) || /\bkyc\b/.test(moduleName + ' ' + raw);
+  }
+  function mergeSalesPortalEnhancementsFrom(list) {
+    (list || []).forEach(function (issue) {
+      if (isSalesPortalEnhancementIssue(issue)) enhancementIssues = mergeIssuesByKey(enhancementIssues, [issue]);
+    });
+  }
+  mergeSalesPortalEnhancementsFrom(todayIssues);
+  mergeSalesPortalEnhancementsFrom(openToDoIssues);
+  mergeSalesPortalEnhancementsFrom(todayDefectIssues);
   var regressionIssues = filterReportIssues(await jiraSearch(regressionJqlStr));
   regressionIssues.forEach(function (issue) { issue.regression = true; });
   var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
@@ -292,6 +309,8 @@ async function fetchReportIssues() {
     if (s === 'canceled' || s === 'cancelled') return !!canceledTodayKeys[issue.key];
     return true;
   });
+  mergeSalesPortalEnhancementsFrom(trackerIssues);
+  mergeSalesPortalEnhancementsFrom(defectLogIssues);
   // Drop any non-today Done tasks from enhancements
   enhancementIssues = enhancementIssues.filter(function (issue) {
     if (!isDoneStatus(issue.status)) return true;

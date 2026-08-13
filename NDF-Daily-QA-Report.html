@@ -1349,7 +1349,7 @@ function wrapExportHtml(bodyHtml){
 }
 
 function wrapOutlookHtml(bodyHtml){
-  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;">' + bodyHtml + '</body></html>';
+  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}#report,.report-two-col{width:940px;}#tblExecSummary,#tbl33{width:100%;table-layout:fixed;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;">' + bodyHtml + '</body></html>';
 }
 
 var PDF_FONT_SCALE = 0.8;
@@ -1516,6 +1516,84 @@ function copyForOutlookViaSelection(clone){
 
 // Copy the report as rich HTML (not an image) so it pastes as real,
 // selectable text/tables into Outlook.
+function setOutlookCellWidth(cell, width){
+  if(!cell) return;
+  cell.setAttribute('width', width);
+  var style = String(cell.getAttribute('style') || '').replace(/width\s*:\s*[^;]+;?/gi, '').replace(/;;+/g, ';').trim();
+  if(style && style.charAt(style.length - 1) !== ';') style += ';';
+  cell.setAttribute('style', style + 'width:' + width + ';');
+}
+
+function ensureOutlookColgroup(tbl, widths){
+  if(!tbl) return;
+  var existing = tbl.querySelector('colgroup');
+  if(existing) existing.parentNode.removeChild(existing);
+  var cg = document.createElement('colgroup');
+  (widths || []).forEach(function(w){
+    var col = document.createElement('col');
+    col.setAttribute('width', w);
+    col.style.width = w;
+    cg.appendChild(col);
+  });
+  tbl.insertBefore(cg, tbl.firstChild);
+}
+
+function lockOutlookPageOneTableWidths(root){
+  if(!root) return;
+  var report = root.id === 'report' ? root : root.querySelector('#report');
+  if(report){
+    report.setAttribute('width', '940');
+    report.style.width = '940px';
+    report.style.maxWidth = '940px';
+  }
+  var grid = root.querySelector('.report-two-col');
+  if(grid){
+    grid.setAttribute('width', '940');
+    grid.style.width = '940px';
+    grid.style.maxWidth = '940px';
+    grid.style.tableLayout = 'fixed';
+    var row = grid.rows[0];
+    if(row && row.cells.length >= 3){
+      setOutlookCellWidth(row.cells[0], '49%');
+      setOutlookCellWidth(row.cells[1], '2%');
+      setOutlookCellWidth(row.cells[2], '49%');
+      row.cells[0].style.verticalAlign = 'top';
+      row.cells[2].style.verticalAlign = 'top';
+    }
+  }
+  var exec = root.querySelector('#tblExecSummary');
+  if(exec){
+    exec.setAttribute('width', '100%');
+    exec.style.width = '100%';
+    exec.style.maxWidth = '100%';
+    exec.style.tableLayout = 'fixed';
+    ensureOutlookColgroup(exec, ['75%', '25%']);
+    [].forEach.call(exec.rows, function(tr){
+      setOutlookCellWidth(tr.cells[0], '75%');
+      setOutlookCellWidth(tr.cells[1], '25%');
+    });
+  }
+  var tracker = root.querySelector('#tbl33');
+  if(tracker){
+    tracker.setAttribute('width', '100%');
+    tracker.style.width = '100%';
+    tracker.style.maxWidth = '100%';
+    tracker.style.tableLayout = 'fixed';
+    ensureOutlookColgroup(tracker, ['30%', '15%', '55%']);
+    [].forEach.call(tracker.rows, function(tr){
+      setOutlookCellWidth(tr.cells[0], '30%');
+      setOutlookCellWidth(tr.cells[1], '15%');
+      if(tr.cells[2]){
+        setOutlookCellWidth(tr.cells[2], '55%');
+        var s = String(tr.cells[2].getAttribute('style') || '');
+        if(!/word-wrap/i.test(s)){
+          tr.cells[2].setAttribute('style', s + 'word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;');
+        }
+      }
+    });
+  }
+}
+
 function copyForOutlook(){
   syncPageOnePanelLayout();
   var clone = prepareReportCloneForExport();
@@ -1523,6 +1601,7 @@ function copyForOutlook(){
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
   matchBlockersWidthToTracker(clone);
+  lockOutlookPageOneTableWidths(clone);
   bakeReproStepsForExport(clone, true);
   sanitizeOutlookTableCells(clone);
   var html = wrapOutlookHtml(clone.outerHTML);
@@ -1889,7 +1968,7 @@ function getExportPrintStyles(){
 function getOutlookExportStyles(){
   return [
     'html,body{margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px!important;line-height:1.35!important;}',
-    '#report{max-width:940px;margin:0 auto;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
+    '#report{width:940px;max-width:940px;margin:0 auto;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
     '#report,#report table,#report td,#report th,#report div,#report span,#report p,#report li{font-family:Arial,Helvetica,sans-serif!important;}',
     'table{border-collapse:collapse;}',
     '.jira-link a{color:#1a5fb4!important;text-decoration:underline;font-weight:700;}',
@@ -1919,12 +1998,17 @@ function getOutlookExportStyles(){
     '.blocker-point:last-child{margin-bottom:0!important;}',
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
-    '#tblExecSummary{margin-bottom:0!important;}',
+    '#tblExecSummary{margin-bottom:0!important;width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
+    '#tblExecSummary td:first-child{width:75%!important;}',
+    '#tblExecSummary td:nth-child(2){width:25%!important;}',
     '#tbl33{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
+    '#tbl33 td:first-child{width:30%!important;}',
+    '#tbl33 td:nth-child(2){width:15%!important;}',
+    '#tbl33 td:nth-child(3){width:55%!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
-    '.report-two-col{width:100%!important;}',
+    '.report-two-col{width:940px!important;max-width:940px!important;table-layout:fixed!important;}',
     '.report-two-col td{vertical-align:top!important;}'
   ].join('');
 }
@@ -2737,25 +2821,36 @@ function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
-  if(s === 'improvement') return type === 'bug' || type === 'task';
+  if(s === 'improvement') return type === 'bug' || type === 'task' || type === 'sub-task' || type === 'subtask';
   if(s === 'todo' && type === 'task') return true;
   if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
+  if(isSalesPortalModule(issue) && isEnhancementTitledIssue(issue) && !isClosedJiraStatus(issue.status) && s !== 'canceled' && s !== 'cancelled') return true;
   return false;
 }
 
 function getIssueModuleName(issue){
   if(!issue) return '';
-  if(issue.module) return String(issue.module).trim();
+  var fromField = String(issue.module || '').trim();
+  if(fromField && fromField !== '\u2014') return fromField;
   var fromRaw = parseSummaryModule(issue.rawSummary || issue.summary || '').module;
   return String(fromRaw || '').trim();
 }
 
+function isEnhancementTitledIssue(issue){
+  var raw = String((issue && (issue.rawSummary || issue.summary)) || '');
+  var title = String((parseSummaryModule(raw).title || raw)).replace(/\u00a0/g, ' ').trim().toLowerCase();
+  return /^enhancement\b/.test(title);
+}
+
 function isSalesPortalModule(issue){
   var moduleName = getIssueModuleName(issue).toLowerCase().replace(/[_\/,-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  if(!moduleName) return false;
-  var hasSales = moduleName.indexOf('sales portal') >= 0;
-  var hasKyc = moduleName === 'kyc' || /(^|\s)kyc(\s|$)/.test(moduleName);
-  return hasSales || hasKyc;
+  var raw = String((issue && (issue.rawSummary || issue.summary || '')) || '').toLowerCase();
+  var repro = String((issue && issue.reproSteps) || '').toLowerCase();
+  var text = (moduleName + ' ' + raw + ' ' + repro).replace(/[_\/,-]+/g, ' ');
+  if(/\[sales\s*portal\]/.test(raw) || /sales\s*portal/.test(text)) return true;
+  if(/\[kyc\]/.test(raw) || moduleName === 'kyc' || /(^|\s)kyc(\s|$)/.test(moduleName)) return true;
+  if(/\bkyc\b/.test(raw) && isEnhancementTitledIssue(issue)) return true;
+  return false;
 }
 
 function isReportExcludedJiraIssue(issue){
@@ -3632,9 +3727,18 @@ function getDefectRowSyncSource(row, key){
   return row.getAttribute('data-issue-sync-source') || getIssueSyncSource(key) || '';
 }
 
+function getReportTable(id){
+  var tables = document.querySelectorAll('table#' + id);
+  for(var i = 0; i < tables.length; i++){
+    if(tables[i].closest && tables[i].closest('template')) continue;
+    return tables[i];
+  }
+  return document.getElementById(id);
+}
+
 function syncEnhancementsFromIssues(issues){
-  if(!document.getElementById('tblEnhancements')) repairEnhancementsSection();
-  var tbl = document.getElementById('tblEnhancements');
+  if(!getReportTable('tblEnhancements')) repairEnhancementsSection();
+  var tbl = getReportTable('tblEnhancements');
   if(!tbl || syncingEnhancements) return;
   syncingEnhancements = true;
   try {
@@ -3671,8 +3775,8 @@ function syncEnhancementsFromIssues(issues){
 }
 
 function syncSalesPortalEnhancementsFromIssues(issues){
-  if(!document.getElementById('tblSalesPortalEnhancements')) repairSalesPortalEnhancementsSection();
-  var tbl = document.getElementById('tblSalesPortalEnhancements');
+  if(!getReportTable('tblSalesPortalEnhancements')) repairSalesPortalEnhancementsSection();
+  var tbl = getReportTable('tblSalesPortalEnhancements');
   if(!tbl || syncingSalesPortalEnhancements) return;
   syncingSalesPortalEnhancements = true;
   try {
@@ -3797,8 +3901,17 @@ function applyJiraPayload(payload){
     initOutlookSections();
     initJiraLinks();
   }
-  syncEnhancementsFromIssues(payload.enhancementIssues || []);
-  syncSalesPortalEnhancementsFromIssues(payload.enhancementIssues || []);
+  var enhancementPool = uniqueIssuesByKey([].concat(
+    payload.enhancementIssues || [],
+    todayIssues,
+    trackerIssues,
+    defectLogIssues,
+    openIssues,
+    fixedTodayIssues,
+    Object.keys(defectMap).map(function(key){ return defectMap[key]; })
+  ));
+  syncEnhancementsFromIssues(enhancementPool);
+  syncSalesPortalEnhancementsFromIssues(enhancementPool);
   purgeAndDedupeIssueSections();
   scheduleAutoSave();
 }
