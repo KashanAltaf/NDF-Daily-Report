@@ -3,7 +3,11 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
 
 const JIRA_BASE_URL = (process.env.JIRA_BASE_URL || 'https://namipay-team.atlassian.net').replace(/\/$/, '');
-const JIRA_EMAIL = process.env.JIRA_EMAIL || '';
+const JIRA_EMAILS = (process.env.JIRA_EMAIL || '')
+  .split(',')
+  .map(function (s) { return s.trim(); })
+  .filter(Boolean);
+const JIRA_EMAIL = JIRA_EMAILS[0] || '';
 const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || '';
 /** Comma-separated Jira project keys (PB + Space Merchant Portal / POR) */
 const JIRA_PROJECTS = (process.env.JIRA_PROJECT || 'PB,POR')
@@ -17,6 +21,21 @@ const PROJECT_MODULE_DEFAULTS = {
 };
 
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
+
+function reportersInJql() {
+  var names = REPORTERS.concat(JIRA_EMAILS);
+  var seen = {};
+  var quoted = [];
+  names.forEach(function (n) {
+    var v = String(n || '').trim();
+    if (!v) return;
+    var key = v.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    quoted.push('"' + v.replace(/"/g, '\\"') + '"');
+  });
+  return 'reporter in (' + quoted.join(', ') + ')';
+}
 
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
 
@@ -81,7 +100,7 @@ function buildBaseJqlParts() {
     projectJql(),
     // Sub-task uses the same defect log + bug tracker pipeline as Bug
     'issuetype in (Bug, "Sub-task")',
-    'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')'
+    reportersInJql(),
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
   return parts;
@@ -152,7 +171,7 @@ function canceledTodayJql(extra) {
 /** Enhancements — PB only. Task in To Do, or Bug/Task in IMPROVEMENT. No defect-log text filter. */
 function enhancementsJql(extra) {
   var jql = enhancementsProjectJql() +
-    ' AND reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
+    ' AND ' + reportersInJql() +
     ' AND created >= "' + ENHANCEMENTS_SINCE + '"' +
     ' AND ((issuetype = Task AND status = "' + STATUS.OPEN + '") OR (issuetype in (Bug, Task) AND status = "' + STATUS.IMPROVEMENT + '"))';
   if (extra) jql += ' AND ' + extra;
@@ -163,7 +182,7 @@ function enhancementsJql(extra) {
 function enhancementsFixedTodayJql(extra) {
   var jql = enhancementsProjectJql() +
     ' AND issuetype = Task' +
-    ' AND reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')' +
+    ' AND ' + reportersInJql() +
     ' AND status in (' + fixedStatusesInJql() + ')' +
     ' AND (status changed to "' + STATUS.FIXED + '" during (startOfDay(), now()) OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now()) OR created >= startOfDay())';
   if (extra) jql += ' AND ' + extra;
@@ -192,6 +211,7 @@ function activeBugsJql(extra) {
 module.exports = {
   JIRA_BASE_URL,
   JIRA_EMAIL,
+  JIRA_EMAILS,
   JIRA_API_TOKEN,
   JIRA_PROJECT,
   JIRA_PROJECTS,

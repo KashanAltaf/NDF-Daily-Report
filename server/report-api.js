@@ -6,9 +6,39 @@ var adoCfg = require('./ado-config');
 var adoClient = require('./ado-client');
 var playwrightParser = require('./playwright-report-parser');
 
-function jiraAuthHeader() {
-  if (!cfg.JIRA_EMAIL || !cfg.JIRA_API_TOKEN) return null;
-  return 'Basic ' + Buffer.from(cfg.JIRA_EMAIL + ':' + cfg.JIRA_API_TOKEN).toString('base64');
+function jiraAuthHeaders() {
+  if (!cfg.JIRA_API_TOKEN || !cfg.JIRA_EMAILS || !cfg.JIRA_EMAILS.length) return [];
+  return cfg.JIRA_EMAILS.map(function (email) {
+    return 'Basic ' + Buffer.from(email + ':' + cfg.JIRA_API_TOKEN).toString('base64');
+  });
+}
+
+async function jiraFetch(url, options) {
+  var auths = jiraAuthHeaders();
+  if (!auths.length) {
+    var err = new Error('Jira credentials missing. Set JIRA_EMAIL and JIRA_API_TOKEN in environment variables.');
+    err.code = 'CONFIG';
+    throw err;
+  }
+  var lastErr = null;
+  for (var a = 0; a < auths.length; a++) {
+    try {
+      var res = await fetch(url, Object.assign({}, options || {}, {
+        headers: Object.assign({}, (options && options.headers) || {}, {
+          Authorization: auths[a],
+          Accept: 'application/json'
+        })
+      }));
+      if (res.status === 401 || res.status === 403) {
+        lastErr = new Error('Jira auth failed for ' + cfg.JIRA_EMAILS[a]);
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Jira request failed');
 }
 
 function mapIssue(issue) {
@@ -91,13 +121,6 @@ function isEligibleFixedIssue(issue, fixedTodayKeys) {
 }
 
 async function jiraSearch(jql) {
-  var auth = jiraAuthHeader();
-  if (!auth) {
-    var err = new Error('Jira credentials missing. Set JIRA_EMAIL and JIRA_API_TOKEN in environment variables.');
-    err.code = 'CONFIG';
-    throw err;
-  }
-
   var fields = ['summary', 'status', 'priority', 'description', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
   var attempts = [
     {
@@ -113,13 +136,9 @@ async function jiraSearch(jql) {
   var lastErr = null;
   for (var i = 0; i < attempts.length; i++) {
     try {
-      var res = await fetch(attempts[i].url, {
+      var res = await jiraFetch(attempts[i].url, {
         method: 'POST',
-        headers: {
-          Authorization: auth,
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(attempts[i].body)
       });
       var text = await res.text();
@@ -147,11 +166,8 @@ function applyPrUrl(issue, url) {
 }
 
 async function fetchRemotePrUrl(issueKey) {
-  var auth = jiraAuthHeader();
-  if (!auth || !issueKey) return '';
-  var res = await fetch(cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/remotelink', {
-    headers: { Authorization: auth, Accept: 'application/json' }
-  });
+  if (!issueKey) return '';
+  var res = await jiraFetch(cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/remotelink');
   if (!res.ok) return '';
   var links = await res.json();
   if (!Array.isArray(links)) return '';
@@ -164,17 +180,14 @@ async function fetchRemotePrUrl(issueKey) {
 }
 
 async function fetchDevStatusPrUrl(issueId) {
-  var auth = jiraAuthHeader();
-  if (!auth || !issueId) return '';
+  if (!issueId) return '';
   var urls = [
     cfg.JIRA_BASE_URL + '/rest/dev-status/latest/issue/detail?issueId=' + encodeURIComponent(issueId) + '&applicationType=GitHub&dataType=pullrequest',
     cfg.JIRA_BASE_URL + '/rest/dev-status/1.0/issue/detail?issueId=' + encodeURIComponent(issueId) + '&applicationType=GitHub&dataType=pullrequest'
   ];
   for (var i = 0; i < urls.length; i++) {
     try {
-      var res = await fetch(urls[i], {
-        headers: { Authorization: auth, Accept: 'application/json' }
-      });
+      var res = await jiraFetch(urls[i]);
       if (!res.ok) continue;
       var data = await res.json();
       var details = data && data.detail ? data.detail : [];
