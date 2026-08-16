@@ -120,31 +120,8 @@
     word-break:break-word;
     vertical-align:top;
   }
-  .report-two-col {
-    width:100%;
-    max-width:100%;
-    table-layout:fixed;
-  }
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
-  .report-two-col > tbody > tr > td:first-child,
-  .report-two-col > tr > td:first-child { width:40%; }
-  .report-two-col > tbody > tr > td:nth-child(2),
-  .report-two-col > tr > td:nth-child(2) { width:10%; }
-  .report-two-col > tbody > tr > td:nth-child(3),
-  .report-two-col > tr > td:nth-child(3) { width:50%; }
-  #tblExecSummary, #tbl33, #scopePanel, #blockersPanel {
-    width:100% !important;
-    max-width:100% !important;
-    box-sizing:border-box;
-  }
-  #tblExecSummary, #tbl33 { table-layout:fixed; }
-  #tbl33 td:nth-child(3) {
-    white-space:normal;
-    word-wrap:break-word;
-    overflow-wrap:anywhere;
-    word-break:break-word;
-  }
   .page-one-scope-host > .scope-panel,
   .page-one-blockers-host > .blockers-panel { width:100%; }
   #tblExecSummary + .scope-panel,
@@ -475,18 +452,13 @@
   </table>
 
   <!-- ============ 3.2 + 3.3 TWO COLUMNS ============ -->
-  <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;width:100%;table-layout:fixed;">
-    <colgroup>
-      <col style="width:40%;">
-      <col style="width:10%;">
-      <col style="width:50%;">
-    </colgroup>
+  <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;">
     <tr>
-      <td width="40%" style="width:40%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#cf8417" style="background-color:#cf8417;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">1</span></td><td style="padding-left:10px;color:#cf8417;font-weight:800;font-size:16px;white-space:nowrap;">Test Execution Summary</td></tr></table>
         </div>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:12.5px;border:1px solid #e7c894;width:100%;max-width:100%;table-layout:fixed;" id="tblExecSummary">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:12.5px;border:1px solid #e7c894;" id="tblExecSummary">
           <tr style="background:#cf8417;color:#fff;font-weight:700;">
             <td style="padding:7px 10px;border:1px solid #e7c894;">Metric</td>
             <td style="padding:7px 10px;border:1px solid #e7c894;width:120px;">Value</td>
@@ -513,8 +485,8 @@
           <button type="button" class="remrow" onclick="removeScopePoint()">− Remove point</button>
         </div>
       </div></td>
-      <td width="10%" style="width:10%;"></td>
-      <td width="50%" style="width:50%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td style="width:2%;"></td>
+      <td style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#e8505b" style="background-color:#e8505b;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">2</span></td><td style="padding-left:10px;color:#e8505b;font-weight:800;font-size:16px;white-space:nowrap;">Bug / Defect Tracker</td></tr></table>
         </div>
@@ -1041,11 +1013,20 @@ function bakePageOnePanelsForExport(root){
     outer.setAttribute('data-export-panel', 'table');
     if(panel.id) outer.id = panel.id;
     outer.className = panel.className;
+    var tracker = root.querySelector('#tbl33');
+    var blockersWidthPx = 0;
+    if(isBlockers && tracker){
+      blockersWidthPx = Math.round(tracker.offsetWidth || 0);
+      if(!blockersWidthPx){
+        var liveTracker = document.getElementById('tbl33');
+        blockersWidthPx = Math.round((liveTracker && liveTracker.offsetWidth) || 0);
+      }
+    }
     exportStyleTd(outer, {
       borderCollapse: 'collapse',
-      width: '100%',
-      maxWidth: '100%',
-      minWidth: '100%',
+      width: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
+      maxWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
+      minWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
       marginTop: '14px',
       border: isBlockers ? '2px solid #b42318' : (isAutomationModule ? '1px solid #c7d2fe' : '1px solid #e7c894'),
       backgroundColor: isBlockers ? '#fff5f5' : (isAutomationModule ? '#eef2ff' : '#fdf3e3'),
@@ -1054,6 +1035,10 @@ function bakePageOnePanelsForExport(root){
       tableLayout: 'fixed',
       boxSizing: 'border-box'
     });
+    if(isBlockers && blockersWidthPx){
+      outer.setAttribute('width', String(blockersWidthPx));
+      outer.setAttribute('data-export-width', String(blockersWidthPx));
+    }
 
     if(header){
       var trHead = document.createElement('tr');
@@ -1186,19 +1171,25 @@ function matchExportPanelHeights(root){
 
 function matchBlockersWidthToTracker(root){
   root = root || document;
-  var tblExec = root.querySelector ? root.querySelector('#tblExecSummary') : null;
   var tbl33 = root.querySelector ? root.querySelector('#tbl33') : null;
-  var scope = root.querySelector ? root.querySelector('#scopePanel, table.scope-panel') : null;
   var blockers = root.querySelector ? root.querySelector('#blockersPanel, table.blockers-panel') : null;
-  [tblExec, tbl33, scope, blockers].forEach(function(el){
-    if(!el) return;
-    el.setAttribute('width', '100%');
-    el.style.width = '100%';
-    el.style.maxWidth = '100%';
-    el.style.minWidth = '100%';
-    el.style.boxSizing = 'border-box';
-    if(el.tagName === 'TABLE') el.style.tableLayout = 'fixed';
-  });
+  if(!tbl33 || !blockers) return;
+  var w = Math.round(tbl33.offsetWidth || 0);
+  if(!w){
+    var attrW = parseFloat(tbl33.getAttribute('width'));
+    if(attrW && attrW > 0 && String(tbl33.getAttribute('width')).indexOf('%') === -1) w = Math.round(attrW);
+  }
+  tbl33.setAttribute('width', '100%');
+  tbl33.style.width = '100%';
+  tbl33.style.maxWidth = '100%';
+  tbl33.style.tableLayout = 'fixed';
+  blockers.setAttribute('width', w ? String(w) : '100%');
+  blockers.style.width = w ? (w + 'px') : '100%';
+  blockers.style.maxWidth = w ? (w + 'px') : '100%';
+  blockers.style.minWidth = w ? (w + 'px') : '100%';
+  blockers.style.boxSizing = 'border-box';
+  blockers.style.tableLayout = 'fixed';
+  blockers.setAttribute('data-export-width', w ? String(w) : '100%');
 }
 
 function attachCloneForMeasure(clone){
@@ -1557,33 +1548,22 @@ function wrapOutlookTrackerIdLinks(root){
     cell.style.wordWrap = 'break-word';
     cell.style.wordBreak = 'break-word';
     cell.style.overflowWrap = 'break-word';
-    var html = cell.innerHTML || '';
-    html = html.replace(/,\s*/g, ',&#8203; ');
-    cell.innerHTML = html;
-    [].forEach.call(cell.querySelectorAll('a'), function(a){
-      a.style.whiteSpace = 'nowrap';
-    });
+    var links = cell.querySelectorAll('a');
+    if(links.length){
+      var html = [];
+      [].forEach.call(links, function(a, i){
+        a.style.whiteSpace = 'nowrap';
+        html.push(a.outerHTML);
+        if(i < links.length - 1){
+          html.push(', ');
+          if((i + 1) % 2 === 0) html.push('<br>');
+        }
+      });
+      cell.innerHTML = html.join('');
+    } else {
+      cell.innerHTML = String(cell.innerHTML || '').replace(/,\s*/g, ',<br>');
+    }
   });
-}
-
-function applyPageOneColumnRatios(root){
-  var grid = (root || document).querySelector ? (root || document).querySelector('.report-two-col') : null;
-  if(!grid) return;
-  grid.setAttribute('width', '100%');
-  grid.style.width = '100%';
-  grid.style.maxWidth = '100%';
-  grid.style.tableLayout = 'fixed';
-  ensureOutlookColgroup(grid, ['40%', '10%', '50%']);
-  [].forEach.call(grid.rows, function(row){
-    if(!row || row.cells.length < 3) return;
-    row.cells[0].setAttribute('width', '40%');
-    row.cells[0].style.width = '40%';
-    row.cells[1].setAttribute('width', '10%');
-    row.cells[1].style.width = '10%';
-    row.cells[2].setAttribute('width', '50%');
-    row.cells[2].style.width = '50%';
-  });
-  matchBlockersWidthToTracker(root || document);
 }
 
 function lockOutlookPageOneTableWidths(root){
@@ -1618,10 +1598,10 @@ function lockOutlookPageOneTableWidths(root){
   }
   function lockInnerTable(tbl, tableWidth, widths){
     if(!tbl) return;
-    tbl.setAttribute('width', '100%');
-    tbl.style.width = '100%';
-    tbl.style.maxWidth = '100%';
-    tbl.style.minWidth = '100%';
+    tbl.setAttribute('width', String(tableWidth));
+    tbl.style.width = tableWidth + 'px';
+    tbl.style.maxWidth = tableWidth + 'px';
+    tbl.style.minWidth = tableWidth + 'px';
     tbl.style.tableLayout = 'fixed';
     ensureOutlookColgroup(tbl, widths.map(function(px){ return px + 'px'; }));
     [].forEach.call(tbl.rows, function(tr){
@@ -1638,7 +1618,28 @@ function lockOutlookPageOneTableWidths(root){
   var tracker = root.querySelector('#tbl33');
   lockInnerTable(tracker, rightW, [catW, countW, idsW]);
   wrapOutlookTrackerIdLinks(root);
-  matchBlockersWidthToTracker(root);
+  var scope = root.querySelector('#scopePanel, table.scope-panel');
+  var blockers = root.querySelector('#blockersPanel, table.blockers-panel');
+  if(scope){
+    scope.setAttribute('width', String(leftW));
+    scope.style.width = leftW + 'px';
+    scope.style.maxWidth = leftW + 'px';
+    scope.style.minWidth = leftW + 'px';
+    scope.style.tableLayout = 'fixed';
+    [].forEach.call(scope.rows || [], function(tr){
+      [].forEach.call(tr.cells || [], function(td){ setOutlookCellWidth(td, leftW + 'px'); });
+    });
+  }
+  if(blockers){
+    blockers.setAttribute('width', String(rightW));
+    blockers.style.width = rightW + 'px';
+    blockers.style.maxWidth = rightW + 'px';
+    blockers.style.minWidth = rightW + 'px';
+    blockers.style.tableLayout = 'fixed';
+    [].forEach.call(blockers.rows || [], function(tr){
+      [].forEach.call(tr.cells || [], function(td){ setOutlookCellWidth(td, rightW + 'px'); });
+    });
+  }
 }
 
 function copyForOutlook(){
@@ -1998,10 +1999,8 @@ function getExportPrintStyles(){
     '#tblExecSummary{margin-bottom:0!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.page-one-print-cols{width:100%!important;font-size:0!important;margin-top:20px!important;}',
-    '.page-one-print-col{display:inline-block!important;vertical-align:top!important;font-size:10px!important;box-sizing:border-box!important;}',
-    '.page-one-print-cols .page-one-print-col:first-child{width:40%!important;}',
-    '.page-one-print-cols .page-one-print-col:last-child{width:50%!important;}',
-    '.page-one-print-gap{display:inline-block!important;width:10%!important;vertical-align:top!important;font-size:10px!important;}',
+    '.page-one-print-col{display:inline-block!important;width:49%!important;vertical-align:top!important;font-size:10px!important;box-sizing:border-box!important;}',
+    '.page-one-print-gap{display:inline-block!important;width:2%!important;vertical-align:top!important;font-size:10px!important;}',
     '#tblExecSummary,#tbl33{width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;table-layout:fixed!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
@@ -2046,9 +2045,13 @@ function getOutlookExportStyles(){
     '.blocker-point:last-child{margin-bottom:0!important;}',
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
-    '#tblExecSummary{margin-bottom:0!important;width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
-    '#tbl33{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
-    '#tbl33 td:nth-child(3){white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
+    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:376px!important;max-width:376px!important;min-width:376px!important;table-layout:fixed!important;}',
+    '#tblExecSummary td:first-child{width:306px!important;}',
+    '#tblExecSummary td:nth-child(2){width:70px!important;}',
+    '#tbl33,#blockersPanel,table.blockers-panel{width:470px!important;max-width:470px!important;min-width:470px!important;table-layout:fixed!important;}',
+    '#tbl33 td:first-child{width:150px!important;}',
+    '#tbl33 td:nth-child(2){width:52px!important;}',
+    '#tbl33 td:nth-child(3){width:268px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
@@ -2182,7 +2185,7 @@ function rebuildPageOneForPrint(root){
     var col = document.createElement('div');
     col.className = 'page-one-print-col';
     col.style.display = 'inline-block';
-    col.style.width = td === leftTd ? '40%' : '50%';
+    col.style.width = '49%';
     col.style.verticalAlign = 'top';
     col.style.fontSize = '10px';
     col.style.boxSizing = 'border-box';
@@ -2200,7 +2203,7 @@ function rebuildPageOneForPrint(root){
   var gap = document.createElement('div');
   gap.className = 'page-one-print-gap';
   gap.style.display = 'inline-block';
-  gap.style.width = '10%';
+  gap.style.width = '2%';
   gap.style.verticalAlign = 'top';
   gap.style.fontSize = '10px';
   gap.innerHTML = '&nbsp;';
@@ -2554,7 +2557,6 @@ function isReportStructureBroken(){
 function lockReportStructure(){
   var report = document.getElementById('report');
   if(!report) return;
-  applyPageOneColumnRatios(report);
   report.setAttribute('contenteditable', 'false');
 
   report.querySelectorAll('table, .report-section, .scope-panel, .blockers-panel, .automation-module-panel, .scope-panel-inner, .scope-panel-header, .automation-module-header, .automation-module-inner, .blockers-header, .section-bar, tr, tbody, thead').forEach(function(el){
@@ -5815,7 +5817,6 @@ function fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, block
 }
 
 function syncPageOnePanelLayout(){
-  applyPageOneColumnRatios(document);
   var scopePanel = document.getElementById('scopePanel');
   var blockersPanel = document.getElementById('blockersPanel');
   var scopeEl = document.getElementById('scopeTestedToday');
@@ -6176,7 +6177,6 @@ function ensureBlockersPanel(){
 }
 
 function forcePageOnePanels(){
-  applyPageOneColumnRatios(document);
   ensureScopePanel();
   ensureBlockersPanel();
   scrubDuplicateBlockersLabels();
