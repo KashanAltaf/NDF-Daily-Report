@@ -1557,8 +1557,8 @@ function lockOutlookPageOneTableWidths(root){
     grid.style.minWidth = totalW + 'px';
     grid.style.tableLayout = 'fixed';
     ensureOutlookColgroup(grid, [colW + 'px', gapW + 'px', colW + 'px']);
-    var row = grid.rows[0];
-    if(row && row.cells.length >= 3){
+    [].forEach.call(grid.rows, function(row){
+      if(!row || row.cells.length < 3) return;
       setOutlookCellWidth(row.cells[0], colW + 'px');
       setOutlookCellWidth(row.cells[1], gapW + 'px');
       setOutlookCellWidth(row.cells[2], colW + 'px');
@@ -1566,7 +1566,7 @@ function lockOutlookPageOneTableWidths(root){
       row.cells[2].setAttribute('valign', 'top');
       row.cells[0].style.verticalAlign = 'top';
       row.cells[2].style.verticalAlign = 'top';
-    }
+    });
   }
   function lockInnerTable(tbl, widths){
     if(!tbl) return;
@@ -1609,7 +1609,7 @@ function copyForOutlook(){
   var holder = attachCloneForMeasure(clone);
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
-  matchBlockersWidthToTracker(clone);
+  rebuildPageOneForOutlook(clone);
   lockOutlookPageOneTableWidths(clone);
   bakeReproStepsForExport(clone, true);
   sanitizeOutlookTableCells(clone);
@@ -2043,6 +2043,82 @@ function resetTableHeightsForPrint(root){
       cell.removeAttribute('height');
     });
   });
+}
+
+function rebuildPageOneForOutlook(root){
+  var grid = root.querySelector('.report-two-col');
+  if(!grid || !grid.rows.length) return;
+  var dataRow = grid.rows[0];
+  if(!dataRow || dataRow.cells.length < 3) return;
+  var leftTd = dataRow.cells[0];
+  var rightTd = dataRow.cells[2];
+  var exec = leftTd.querySelector('#tblExecSummary');
+  var tracker = rightTd.querySelector('#tbl33');
+  if(!exec || !tracker) return;
+  var scope = leftTd.querySelector('#scopePanel, table.scope-panel');
+  var blockers = rightTd.querySelector('#blockersPanel, table.blockers-panel');
+  var leftTitle = null;
+  var rightTitle = null;
+  [].forEach.call(leftTd.querySelectorAll('table'), function(t){
+    if(!leftTitle && t !== exec && t !== scope && t.querySelector('.sec-num')) leftTitle = t;
+  });
+  [].forEach.call(rightTd.querySelectorAll('table'), function(t){
+    if(!rightTitle && t !== tracker && t !== blockers && t.querySelector('.sec-num')) rightTitle = t;
+  });
+
+  function pxTable(tbl){
+    if(!tbl) return null;
+    tbl.setAttribute('width', '460');
+    tbl.style.width = '460px';
+    tbl.style.maxWidth = '460px';
+    tbl.style.minWidth = '460px';
+    tbl.style.tableLayout = 'fixed';
+    return tbl;
+  }
+  pxTable(exec);
+  pxTable(tracker);
+  pxTable(scope);
+  pxTable(blockers);
+  pxTable(leftTitle);
+  pxTable(rightTitle);
+
+  function makeTd(width, child){
+    var td = document.createElement('td');
+    td.setAttribute('width', String(width));
+    td.setAttribute('valign', 'top');
+    td.setAttribute('style', 'width:' + width + 'px;max-width:' + width + 'px;vertical-align:top;padding:0;margin:0;');
+    if(child) td.appendChild(child);
+    else td.innerHTML = '&nbsp;';
+    return td;
+  }
+  function makeRow(left, right){
+    var tr = document.createElement('tr');
+    tr.appendChild(makeTd(460, left));
+    tr.appendChild(makeTd(20, null));
+    tr.appendChild(makeTd(460, right));
+    return tr;
+  }
+
+  var next = document.createElement('table');
+  next.setAttribute('role', 'presentation');
+  next.className = 'report-two-col';
+  next.setAttribute('width', '940');
+  next.setAttribute('cellpadding', '0');
+  next.setAttribute('cellspacing', '0');
+  next.setAttribute('border', '0');
+  next.setAttribute('style', 'width:940px;max-width:940px;min-width:940px;border-collapse:collapse;margin-top:20px;table-layout:fixed;');
+  var cg = document.createElement('colgroup');
+  [460, 20, 460].forEach(function(w){
+    var col = document.createElement('col');
+    col.setAttribute('width', String(w));
+    col.style.width = w + 'px';
+    cg.appendChild(col);
+  });
+  next.appendChild(cg);
+  next.appendChild(makeRow(leftTitle, rightTitle));
+  next.appendChild(makeRow(exec, tracker));
+  next.appendChild(makeRow(scope, blockers));
+  grid.parentNode.replaceChild(next, grid);
 }
 
 function flattenColumnCell(td){
