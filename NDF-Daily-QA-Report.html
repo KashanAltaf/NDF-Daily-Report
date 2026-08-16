@@ -120,8 +120,17 @@
     word-break:break-word;
     vertical-align:top;
   }
+  .report-two-col { width:100%; table-layout:fixed; }
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
+  .report-two-col > tbody > tr > td:first-child,
+  .report-two-col > tr > td:first-child { width:40%; }
+  .report-two-col > tbody > tr > td:nth-child(2),
+  .report-two-col > tr > td:nth-child(2) { width:10%; }
+  .report-two-col > tbody > tr > td:nth-child(3),
+  .report-two-col > tr > td:nth-child(3) { width:50%; }
+  #tblExecSummary, #tbl33 { width:100%; max-width:100%; table-layout:fixed; }
+  #tbl33 td:nth-child(3) { white-space:normal; word-wrap:break-word; overflow-wrap:anywhere; }
   .page-one-scope-host > .scope-panel,
   .page-one-blockers-host > .blockers-panel { width:100%; }
   #tblExecSummary + .scope-panel,
@@ -452,9 +461,14 @@
   </table>
 
   <!-- ============ 3.2 + 3.3 TWO COLUMNS ============ -->
-  <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;">
+  <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;width:100%;table-layout:fixed;">
+    <colgroup>
+      <col style="width:40%;">
+      <col style="width:10%;">
+      <col style="width:50%;">
+    </colgroup>
     <tr>
-      <td style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="40%" style="width:40%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#cf8417" style="background-color:#cf8417;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">1</span></td><td style="padding-left:10px;color:#cf8417;font-weight:800;font-size:16px;white-space:nowrap;">Test Execution Summary</td></tr></table>
         </div>
@@ -485,8 +499,8 @@
           <button type="button" class="remrow" onclick="removeScopePoint()">− Remove point</button>
         </div>
       </div></td>
-      <td style="width:2%;"></td>
-      <td style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="10%" style="width:10%;"></td>
+      <td width="50%" style="width:50%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#e8505b" style="background-color:#e8505b;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">2</span></td><td style="padding-left:10px;color:#e8505b;font-weight:800;font-size:16px;white-space:nowrap;">Bug / Defect Tracker</td></tr></table>
         </div>
