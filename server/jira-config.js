@@ -8,7 +8,28 @@ const JIRA_EMAILS = (process.env.JIRA_EMAIL || '')
   .map(function (s) { return s.trim(); })
   .filter(Boolean);
 const JIRA_EMAIL = JIRA_EMAILS[0] || '';
-const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || '';
+const JIRA_API_TOKEN = (process.env.JIRA_API_TOKEN || '').split(',')[0].trim();
+const JIRA_API_TOKENS = (process.env.JIRA_API_TOKEN || '')
+  .split(',')
+  .map(function (s) { return s.trim(); })
+  .filter(Boolean);
+const JIRA_API_TOKEN_NAMIPAY = (process.env.JIRA_API_TOKEN_NAMIPAY || '').trim();
+
+function tokenForEmail(email, index) {
+  var addr = String(email || '').trim().toLowerCase();
+  if (addr.indexOf('@namipay.com.sa') >= 0 && JIRA_API_TOKEN_NAMIPAY) return JIRA_API_TOKEN_NAMIPAY;
+  if (JIRA_API_TOKENS[index]) return JIRA_API_TOKENS[index];
+  if (addr.indexOf('@veroke.com') >= 0 && JIRA_API_TOKENS[0]) return JIRA_API_TOKENS[0];
+  return '';
+}
+
+function jiraAuthAccounts() {
+  return JIRA_EMAILS.map(function (email, index) {
+    return { email: email, token: tokenForEmail(email, index) };
+  }).filter(function (account) {
+    return account.email && account.token;
+  });
+}
 /** Comma-separated Jira project keys (PB + Space Merchant Portal / POR) */
 const JIRA_PROJECTS = (process.env.JIRA_PROJECT || 'PB,POR')
   .split(',')
@@ -23,18 +44,7 @@ const PROJECT_MODULE_DEFAULTS = {
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
 
 function reportersInJql() {
-  var names = REPORTERS.concat(JIRA_EMAILS);
-  var seen = {};
-  var quoted = [];
-  names.forEach(function (n) {
-    var v = String(n || '').trim();
-    if (!v) return;
-    var key = v.toLowerCase();
-    if (seen[key]) return;
-    seen[key] = true;
-    quoted.push('"' + v.replace(/"/g, '\\"') + '"');
-  });
-  return 'reporter in (' + quoted.join(', ') + ')';
+  return 'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')';
 }
 
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
@@ -213,6 +223,9 @@ module.exports = {
   JIRA_EMAIL,
   JIRA_EMAILS,
   JIRA_API_TOKEN,
+  JIRA_API_TOKEN_NAMIPAY,
+  tokenForEmail,
+  jiraAuthAccounts,
   JIRA_PROJECT,
   JIRA_PROJECTS,
   PROJECT_MODULE_DEFAULTS,

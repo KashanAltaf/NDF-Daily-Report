@@ -7,16 +7,18 @@ var adoClient = require('./ado-client');
 var playwrightParser = require('./playwright-report-parser');
 
 function jiraAuthHeaders() {
-  if (!cfg.JIRA_API_TOKEN || !cfg.JIRA_EMAILS || !cfg.JIRA_EMAILS.length) return [];
-  return cfg.JIRA_EMAILS.map(function (email) {
-    return 'Basic ' + Buffer.from(email + ':' + cfg.JIRA_API_TOKEN).toString('base64');
+  return cfg.jiraAuthAccounts().map(function (account) {
+    return {
+      email: account.email,
+      header: 'Basic ' + Buffer.from(account.email + ':' + account.token).toString('base64')
+    };
   });
 }
 
 async function jiraFetch(url, options) {
   var auths = jiraAuthHeaders();
   if (!auths.length) {
-    var err = new Error('Jira credentials missing. Set JIRA_EMAIL and JIRA_API_TOKEN in environment variables.');
+    var err = new Error('Jira credentials missing. Set JIRA_EMAIL, JIRA_API_TOKEN, and JIRA_API_TOKEN_NAMIPAY in environment variables.');
     err.code = 'CONFIG';
     throw err;
   }
@@ -25,12 +27,12 @@ async function jiraFetch(url, options) {
     try {
       var res = await fetch(url, Object.assign({}, options || {}, {
         headers: Object.assign({}, (options && options.headers) || {}, {
-          Authorization: auths[a],
+          Authorization: auths[a].header,
           Accept: 'application/json'
         })
       }));
       if (res.status === 401 || res.status === 403) {
-        lastErr = new Error('Jira auth failed for ' + cfg.JIRA_EMAILS[a]);
+        lastErr = new Error('Jira auth failed for ' + auths[a].email);
         continue;
       }
       return res;
@@ -120,7 +122,7 @@ function isEligibleFixedIssue(issue, fixedTodayKeys) {
   return !!(fixedTodayKeys && fixedTodayKeys[issue.key]);
 }
 
-async function jiraSearch(jql) {
+async function jiraSearchWithAuth(jql, auth) {
   var fields = ['summary', 'status', 'priority', 'description', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
   var attempts = [
     {
@@ -136,14 +138,22 @@ async function jiraSearch(jql) {
   var lastErr = null;
   for (var i = 0; i < attempts.length; i++) {
     try {
-      var res = await jiraFetch(attempts[i].url, {
+      var res = await fetch(attempts[i].url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: auth,
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(attempts[i].body)
       });
       var text = await res.text();
       var data;
       try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
+      if (res.status === 401 || res.status === 403) {
+        lastErr = new Error('Jira auth failed');
+        break;
+      }
       if (!res.ok) {
         lastErr = new Error((data.errorMessages && data.errorMessages.join('; ')) || data.message || text || res.statusText);
         continue;
@@ -154,6 +164,29 @@ async function jiraSearch(jql) {
     }
   }
   throw lastErr || new Error('Jira search failed');
+}
+
+async function jiraSearch(jql) {
+  var auths = jiraAuthHeaders();
+  if (!auths.length) {
+    var err = new Error('Jira credentials missing. Set JIRA_EMAIL and JIRA_API_TOKEN in environment variables.');
+    err.code = 'CONFIG';
+    throw err;
+  }
+  var merged = [];
+  var lastErr = null;
+  var anyOk = false;
+  for (var a = 0; a < auths.length; a++) {
+    try {
+      var issues = await jiraSearchWithAuth(jql, auths[a].header);
+      anyOk = true;
+      merged = mergeIssuesByKey(merged, issues);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (!anyOk) throw lastErr || new Error('Jira search failed');
+  return merged;
 }
 
 var prUrlCache = {};
@@ -385,7 +418,7 @@ async function fetchReportIssues() {
 function getJiraHealth() {
   return {
     ok: true,
-    configured: !!(cfg.JIRA_EMAIL && cfg.JIRA_API_TOKEN),
+    configured: cfg.jiraAuthAccounts().length > 0,
     baseUrl: cfg.JIRA_BASE_URL,
     project: cfg.JIRA_PROJECT,
     projects: cfg.JIRA_PROJECTS

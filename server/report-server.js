@@ -153,7 +153,7 @@ server.listen(PORT, function () {
   } else {
     console.log('Auth: disabled (set AUTH_SECRET + AUTH_TOTP_SECRET to enable)');
   }
-  if (!cfg.JIRA_EMAIL || !cfg.JIRA_API_TOKEN) {
+  if (!cfg.jiraAuthAccounts().length) {
     console.warn('Warning: JIRA_EMAIL / JIRA_API_TOKEN not set — Jira sync will fail until .env is configured.');
   }
   if (!adoCfg.ADO_PAT) {
