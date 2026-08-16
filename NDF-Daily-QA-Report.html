@@ -1349,8 +1349,7 @@ function wrapExportHtml(bodyHtml){
 }
 
 function wrapOutlookHtml(bodyHtml){
-  var total = String((getLivePageOneWidths() && getLivePageOneWidths().total) || 940);
-  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;"><table role="presentation" width="' + total + '" cellpadding="0" cellspacing="0" style="width:' + total + 'px;max-width:' + total + 'px;border-collapse:collapse;"><tr><td width="' + total + '" style="width:' + total + 'px;">' + bodyHtml + '</td></tr></table></body></html>';
+  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;"><table role="presentation" width="940" cellpadding="0" cellspacing="0" style="width:940px;max-width:940px;border-collapse:collapse;"><tr><td width="940" style="width:940px;">' + bodyHtml + '</td></tr></table></body></html>';
 }
 
 var PDF_FONT_SCALE = 0.8;
@@ -1539,36 +1538,38 @@ function ensureOutlookColgroup(tbl, widths){
   tbl.insertBefore(cg, tbl.firstChild);
 }
 
-function getLivePageOneWidths(){
-  var fallback = { total: 940, col: 460, gap: 20, valueW: 120, countW: 70, idsW: 150 };
-  var live = document.querySelector('#report .report-two-col');
-  if(!live || !live.rows[0] || live.rows[0].cells.length < 3) return fallback;
-  var left = Math.round(live.rows[0].cells[0].getBoundingClientRect().width);
-  var gap = Math.round(live.rows[0].cells[1].getBoundingClientRect().width);
-  var right = Math.round(live.rows[0].cells[2].getBoundingClientRect().width);
-  if(left < 280 || right < 280) return fallback;
-  var col = Math.min(left, right);
-  var exec = document.getElementById('tblExecSummary');
-  var tracker = document.getElementById('tbl33');
-  var valueW = (exec && exec.rows[0] && exec.rows[0].cells[1]) ? Math.round(exec.rows[0].cells[1].getBoundingClientRect().width) : fallback.valueW;
-  var countW = (tracker && tracker.rows[0] && tracker.rows[0].cells[1]) ? Math.round(tracker.rows[0].cells[1].getBoundingClientRect().width) : fallback.countW;
-  var idsW = (tracker && tracker.rows[0] && tracker.rows[0].cells[2]) ? Math.round(tracker.rows[0].cells[2].getBoundingClientRect().width) : fallback.idsW;
-  return {
-    total: col * 2 + (gap || 20),
-    col: col,
-    gap: gap || 20,
-    valueW: valueW > 40 ? valueW : fallback.valueW,
-    countW: countW > 30 ? countW : fallback.countW,
-    idsW: idsW > 60 ? idsW : fallback.idsW
-  };
+function wrapOutlookTrackerIdLinks(root){
+  var tracker = root.querySelector('#tbl33');
+  if(!tracker) return;
+  [].forEach.call(tracker.rows, function(tr){
+    var cell = tr.cells[2];
+    if(!cell) return;
+    cell.style.whiteSpace = 'normal';
+    cell.style.wordWrap = 'break-word';
+    cell.style.wordBreak = 'break-word';
+    cell.style.overflowWrap = 'break-word';
+    var html = cell.innerHTML || '';
+    html = html.replace(/,\s*/g, ',&#8203; ');
+    cell.innerHTML = html;
+    [].forEach.call(cell.querySelectorAll('a'), function(a){
+      a.style.whiteSpace = 'nowrap';
+    });
+  });
 }
 
 function lockOutlookPageOneTableWidths(root){
   if(!root) return;
-  var w = getLivePageOneWidths();
-  var colW = w.col;
-  var gapW = w.gap;
-  var totalW = w.total;
+  var totalW = 940;
+  var gapW = 16;
+  var liveExec = document.getElementById('tblExecSummary');
+  var leftW = Math.round((liveExec && liveExec.getBoundingClientRect().width) || 400);
+  if(leftW < 320) leftW = 380;
+  if(leftW > 500) leftW = 420;
+  var rightW = totalW - leftW - gapW;
+  if(rightW < 360){
+    rightW = 360;
+    leftW = totalW - rightW - gapW;
+  }
   var report = root.id === 'report' ? root : root.querySelector('#report');
   if(report){
     report.setAttribute('width', String(totalW));
@@ -1580,55 +1581,54 @@ function lockOutlookPageOneTableWidths(root){
     grid.setAttribute('width', String(totalW));
     grid.style.width = totalW + 'px';
     grid.style.maxWidth = totalW + 'px';
-    grid.style.minWidth = totalW + 'px';
     grid.style.tableLayout = 'fixed';
-    ensureOutlookColgroup(grid, [colW + 'px', gapW + 'px', colW + 'px']);
+    ensureOutlookColgroup(grid, [leftW + 'px', gapW + 'px', rightW + 'px']);
     [].forEach.call(grid.rows, function(row){
       if(!row || row.cells.length < 3) return;
-      setOutlookCellWidth(row.cells[0], colW + 'px');
+      setOutlookCellWidth(row.cells[0], leftW + 'px');
       setOutlookCellWidth(row.cells[1], gapW + 'px');
-      setOutlookCellWidth(row.cells[2], colW + 'px');
+      setOutlookCellWidth(row.cells[2], rightW + 'px');
       row.cells[0].setAttribute('valign', 'top');
       row.cells[2].setAttribute('valign', 'top');
       row.cells[0].style.verticalAlign = 'top';
       row.cells[2].style.verticalAlign = 'top';
     });
   }
-  function lockInnerTable(tbl, widths){
+  function lockInnerTable(tbl, tableWidth, widths){
     if(!tbl) return;
-    tbl.setAttribute('width', String(colW));
-    tbl.style.width = colW + 'px';
-    tbl.style.maxWidth = colW + 'px';
-    tbl.style.minWidth = colW + 'px';
+    tbl.setAttribute('width', String(tableWidth));
+    tbl.style.width = tableWidth + 'px';
+    tbl.style.maxWidth = tableWidth + 'px';
     tbl.style.tableLayout = 'fixed';
-    ensureOutlookColgroup(tbl, widths);
+    ensureOutlookColgroup(tbl, widths.map(function(px){ return px + 'px'; }));
     [].forEach.call(tbl.rows, function(tr){
       widths.forEach(function(px, idx){
         if(tr.cells[idx]) setOutlookCellWidth(tr.cells[idx], px + 'px');
       });
     });
   }
-  var metricW = Math.max(80, colW - w.valueW);
-  lockInnerTable(root.querySelector('#tblExecSummary'), [metricW, w.valueW]);
+  var valueW = 70;
+  lockInnerTable(root.querySelector('#tblExecSummary'), leftW, [leftW - valueW, valueW]);
+  var countW = 52;
+  var catW = 150;
+  var idsW = Math.max(140, rightW - catW - countW);
   var tracker = root.querySelector('#tbl33');
-  var catW = Math.max(80, colW - w.countW - w.idsW);
-  lockInnerTable(tracker, [catW, w.countW, w.idsW]);
-  if(tracker){
-    [].forEach.call(tracker.rows, function(tr){
-      if(!tr.cells[2]) return;
-      var s = String(tr.cells[2].getAttribute('style') || '');
-      if(!/word-break/i.test(s)){
-        tr.cells[2].setAttribute('style', s + 'word-wrap:break-word;overflow-wrap:break-word;word-break:break-word;');
-      }
-    });
+  lockInnerTable(tracker, rightW, [catW, countW, idsW]);
+  wrapOutlookTrackerIdLinks(root);
+  var scope = root.querySelector('#scopePanel, table.scope-panel');
+  var blockers = root.querySelector('#blockersPanel, table.blockers-panel');
+  if(scope){
+    scope.setAttribute('width', String(leftW));
+    scope.style.width = leftW + 'px';
+    scope.style.maxWidth = leftW + 'px';
+    scope.style.tableLayout = 'fixed';
   }
-  root.querySelectorAll('#scopePanel, table.scope-panel, #blockersPanel, table.blockers-panel').forEach(function(panel){
-    panel.setAttribute('width', String(colW));
-    panel.style.width = colW + 'px';
-    panel.style.maxWidth = colW + 'px';
-    panel.style.minWidth = colW + 'px';
-    panel.style.tableLayout = 'fixed';
-  });
+  if(blockers){
+    blockers.setAttribute('width', String(rightW));
+    blockers.style.width = rightW + 'px';
+    blockers.style.maxWidth = rightW + 'px';
+    blockers.style.tableLayout = 'fixed';
+  }
 }
 
 function copyForOutlook(){
