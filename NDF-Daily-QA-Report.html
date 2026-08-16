@@ -124,11 +124,11 @@
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
   .report-two-col > tbody > tr > td:first-child,
-  .report-two-col > tr > td:first-child { width:40%; }
+  .report-two-col > tr > td:first-child { width:49%; }
   .report-two-col > tbody > tr > td:nth-child(2),
-  .report-two-col > tr > td:nth-child(2) { width:10%; }
+  .report-two-col > tr > td:nth-child(2) { width:2%; }
   .report-two-col > tbody > tr > td:nth-child(3),
-  .report-two-col > tr > td:nth-child(3) { width:50%; }
+  .report-two-col > tr > td:nth-child(3) { width:49%; }
   #tblExecSummary, #tbl33 { width:100%; max-width:100%; table-layout:fixed; }
   #tbl33 td:nth-child(3) { white-space:normal; word-wrap:break-word; overflow-wrap:anywhere; }
   .page-one-scope-host > .scope-panel,
@@ -463,12 +463,12 @@
   <!-- ============ 3.2 + 3.3 TWO COLUMNS ============ -->
   <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;width:100%;table-layout:fixed;">
     <colgroup>
-      <col style="width:40%;">
-      <col style="width:10%;">
-      <col style="width:50%;">
+      <col style="width:49%;">
+      <col style="width:2%;">
+      <col style="width:49%;">
     </colgroup>
     <tr>
-      <td width="40%" style="width:40%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="49%" style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#cf8417" style="background-color:#cf8417;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">1</span></td><td style="padding-left:10px;color:#cf8417;font-weight:800;font-size:16px;white-space:nowrap;">Test Execution Summary</td></tr></table>
         </div>
@@ -499,8 +499,8 @@
           <button type="button" class="remrow" onclick="removeScopePoint()">− Remove point</button>
         </div>
       </div></td>
-      <td width="10%" style="width:10%;"></td>
-      <td width="50%" style="width:50%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="2%" style="width:2%;"></td>
+      <td width="49%" style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#e8505b" style="background-color:#e8505b;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">2</span></td><td style="padding-left:10px;color:#e8505b;font-weight:800;font-size:16px;white-space:nowrap;">Bug / Defect Tracker</td></tr></table>
         </div>
@@ -1583,9 +1583,9 @@ function wrapOutlookTrackerIdLinks(root){
 function lockOutlookPageOneTableWidths(root){
   if(!root) return;
   var totalW = 940;
-  var leftW = 376;
-  var gapW = 94;
-  var rightW = 470;
+  var leftW = 460;
+  var gapW = 20;
+  var rightW = 460;
   var report = root.id === 'report' ? root : root.querySelector('#report');
   if(report){
     report.setAttribute('width', String(totalW));
@@ -2059,20 +2059,20 @@ function getOutlookExportStyles(){
     '.blocker-point:last-child{margin-bottom:0!important;}',
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
-    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:376px!important;max-width:376px!important;min-width:376px!important;table-layout:fixed!important;}',
-    '#tblExecSummary td:first-child{width:306px!important;}',
-    '#tblExecSummary td:nth-child(2){width:70px!important;}',
-    '#tbl33,#blockersPanel,table.blockers-panel{width:470px!important;max-width:470px!important;min-width:470px!important;table-layout:fixed!important;}',
-    '#tbl33 td:first-child{width:150px!important;}',
+    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:460px!important;max-width:460px!important;min-width:460px!important;table-layout:fixed!important;}',
+    '#tblExecSummary td:first-child{width:340px!important;}',
+    '#tblExecSummary td:nth-child(2){width:120px!important;}',
+    '#tbl33,#blockersPanel,table.blockers-panel{width:460px!important;max-width:460px!important;min-width:460px!important;table-layout:fixed!important;}',
+    '#tbl33 td:first-child{width:160px!important;}',
     '#tbl33 td:nth-child(2){width:52px!important;}',
-    '#tbl33 td:nth-child(3){width:268px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
+    '#tbl33 td:nth-child(3){width:248px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.report-banner,.report-footer,.report-two-col{width:940px!important;max-width:940px!important;table-layout:fixed!important;}',
-    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:376px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:94px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:470px!important;}',
+    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:460px!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:20px!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:460px!important;}',
     '.report-two-col td{vertical-align:top!important;}'
   ].join('');
 }
