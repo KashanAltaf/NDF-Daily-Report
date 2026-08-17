@@ -124,11 +124,11 @@
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
   .report-two-col > tbody > tr > td:first-child,
-  .report-two-col > tr > td:first-child { width:49%; }
+  .report-two-col > tr > td:first-child { width:49.5%; }
   .report-two-col > tbody > tr > td:nth-child(2),
-  .report-two-col > tr > td:nth-child(2) { width:2%; }
+  .report-two-col > tr > td:nth-child(2) { width:1%; }
   .report-two-col > tbody > tr > td:nth-child(3),
-  .report-two-col > tr > td:nth-child(3) { width:49%; }
+  .report-two-col > tr > td:nth-child(3) { width:49.5%; }
   #tblExecSummary, #tbl33 { width:100%; max-width:100%; table-layout:fixed; }
   #tbl33 td:nth-child(3) { white-space:normal; word-wrap:break-word; overflow-wrap:anywhere; }
   .page-one-scope-host > .scope-panel,
@@ -463,12 +463,12 @@
   <!-- ============ 3.2 + 3.3 TWO COLUMNS ============ -->
   <table role="presentation" class="report-two-col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px;width:100%;table-layout:fixed;">
     <colgroup>
-      <col style="width:49%;">
-      <col style="width:2%;">
-      <col style="width:49%;">
+      <col style="width:49.5%;">
+      <col style="width:1%;">
+      <col style="width:49.5%;">
     </colgroup>
     <tr>
-      <td width="49%" style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="49.5%" style="width:49.5%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#cf8417" style="background-color:#cf8417;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">1</span></td><td style="padding-left:10px;color:#cf8417;font-weight:800;font-size:16px;white-space:nowrap;">Test Execution Summary</td></tr></table>
         </div>
@@ -499,8 +499,8 @@
           <button type="button" class="remrow" onclick="removeScopePoint()">− Remove point</button>
         </div>
       </div></td>
-      <td width="2%" style="width:2%;"></td>
-      <td width="49%" style="width:49%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
+      <td width="1%" style="width:1%;"></td>
+      <td width="49.5%" style="width:49.5%;vertical-align:top;"><div class="report-section" data-outlook-include="true"><div class="section-bar no-copy"><label class="outlook-toggle"><input type="checkbox" onchange="onOutlookToggle(this)"> Do not copy to Outlook</label></div>
         <div style="padding:0 4px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;display:inline-table;"><tr><td bgcolor="#e8505b" style="background-color:#e8505b;color:#ffffff;font-weight:800;font-size:13px;padding:4px 10px;border-radius:4px;"><span class="sec-num">2</span></td><td style="padding-left:10px;color:#e8505b;font-weight:800;font-size:16px;white-space:nowrap;">Bug / Defect Tracker</td></tr></table>
         </div>
@@ -1362,8 +1362,57 @@ function wrapExportHtml(bodyHtml){
   return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}</style><![endif]--><style>' + getExportPrintStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:10px;">' + bodyHtml + '</body></html>';
 }
 
+function stripOutlookSpacerNoise(root){
+  if(!root) return;
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT, null);
+  var comments = [];
+  while(walker.nextNode()) comments.push(walker.currentNode);
+  comments.forEach(function(node){ if(node.parentNode) node.parentNode.removeChild(node); });
+
+  walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  var textNodes = [];
+  while(walker.nextNode()) textNodes.push(walker.currentNode);
+  textNodes.forEach(function(node){
+    if(!node || !node.parentNode) return;
+    if(String(node.nodeValue || '').replace(/\u00a0/g, ' ').trim() !== '') return;
+    var parent = node.parentNode;
+    if(parent && (parent.tagName === 'TD' || parent.tagName === 'TH' || parent.tagName === 'SPAN' || parent.tagName === 'A' || parent.tagName === 'P' || parent.tagName === 'LI')) return;
+    parent.removeChild(node);
+  });
+
+  root.querySelectorAll('p, div, span').forEach(function(el){
+    if(el.id || (el.className && String(el.className).trim())) return;
+    if(el.querySelector('table,img,a,input,button,textarea')) return;
+    var text = String(el.textContent || '').replace(/\u00a0/g, ' ').trim();
+    if(text) return;
+    if(el.parentNode) el.parentNode.removeChild(el);
+  });
+
+  root.querySelectorAll('br').forEach(function(br){
+    var prev = br.previousSibling;
+    var next = br.nextSibling;
+    var onlyBeforeBanner = !prev && next && next.classList && (next.classList.contains('report-banner') || next.classList.contains('report-footer'));
+    var onlyAfterBanner = !next && prev && prev.classList && (prev.classList.contains('report-banner') || prev.classList.contains('report-footer'));
+    if(onlyBeforeBanner || onlyAfterBanner) br.parentNode.removeChild(br);
+  });
+
+  root.style.margin = '0';
+  root.style.padding = '0';
+  var banner = root.querySelector('.report-banner');
+  if(banner){
+    banner.style.margin = '0';
+    banner.style.padding = '0';
+  }
+  var footer = root.querySelector('.report-footer');
+  if(footer){
+    footer.style.margin = '0';
+    footer.style.marginTop = '16px';
+    footer.style.padding = '0';
+  }
+}
+
 function wrapOutlookHtml(bodyHtml){
-  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;"><table role="presentation" width="940" cellpadding="0" cellspacing="0" style="width:940px;max-width:940px;border-collapse:collapse;"><tr><td width="940" style="width:940px;">' + bodyHtml + '</td></tr></table></body></html>';
+  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}p{margin:0;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;"><table role="presentation" width="940" cellpadding="0" cellspacing="0" border="0" style="width:940px;max-width:940px;border-collapse:collapse;margin:0;padding:0;"><tr><td width="940" valign="top" style="width:940px;padding:0;margin:0;vertical-align:top;">' + bodyHtml + '</td></tr></table></body></html>';
 }
 
 var PDF_FONT_SCALE = 0.8;
@@ -1583,9 +1632,9 @@ function wrapOutlookTrackerIdLinks(root){
 function lockOutlookPageOneTableWidths(root){
   if(!root) return;
   var totalW = 940;
-  var leftW = 460;
-  var gapW = 20;
-  var rightW = 460;
+  var leftW = 466;
+  var gapW = 8;
+  var rightW = 466;
   var report = root.id === 'report' ? root : root.querySelector('#report');
   if(report){
     report.setAttribute('width', String(totalW));
@@ -1665,6 +1714,7 @@ function copyForOutlook(){
   lockOutlookPageOneTableWidths(clone);
   bakeReproStepsForExport(clone, true);
   sanitizeOutlookTableCells(clone);
+  stripOutlookSpacerNoise(clone);
   var html = wrapOutlookHtml(clone.outerHTML);
   var plain = clone.innerText || clone.textContent || '';
 
@@ -1672,7 +1722,9 @@ function copyForOutlook(){
     document.body.removeChild(holder);
     showToast('Copied! Now paste (Ctrl+V) into a new Outlook email.');
   }, function(){
-    var ok = copyForOutlookViaSelection(clone.cloneNode(true));
+    var fallback = clone.cloneNode(true);
+    stripOutlookSpacerNoise(fallback);
+    var ok = copyForOutlookViaSelection(fallback);
     document.body.removeChild(holder);
     if(ok) showToast('Copied! Now paste (Ctrl+V) into a new Outlook email.');
     else showToast('Copy failed — try Print / Save as PDF instead.');
@@ -2014,7 +2066,7 @@ function getExportPrintStyles(){
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.page-one-print-cols{width:100%!important;font-size:0!important;margin-top:20px!important;}',
     '.page-one-print-col{display:inline-block!important;width:49%!important;vertical-align:top!important;font-size:10px!important;box-sizing:border-box!important;}',
-    '.page-one-print-gap{display:inline-block!important;width:2%!important;vertical-align:top!important;font-size:10px!important;}',
+    '.page-one-print-gap{display:inline-block!important;width:1%!important;vertical-align:top!important;font-size:10px!important;}',
     '#tblExecSummary,#tbl33{width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;table-layout:fixed!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
@@ -2028,12 +2080,15 @@ function getExportPrintStyles(){
 
 function getOutlookExportStyles(){
   return [
-    'html,body{margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px!important;line-height:1.35!important;}',
-    '#report{width:940px;max-width:940px;margin:0 auto;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
+    'html,body{margin:0!important;padding:0!important;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px!important;line-height:1.35!important;}',
+    'p{margin:0!important;padding:0!important;}',
+    '#report{width:940px;max-width:940px;margin:0!important;padding:0!important;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
     '#report,#report table,#report td,#report th,#report div,#report span,#report p,#report li{font-family:Arial,Helvetica,sans-serif!important;}',
-    'table{border-collapse:collapse;}',
+    'table{border-collapse:collapse;margin:0!important;}',
     '.jira-link a{color:#1a5fb4!important;text-decoration:underline;font-weight:700;}',
     '.repro-steps-cell{white-space:normal!important;line-height:1.45!important;mso-line-height-rule:exactly;vertical-align:top!important;padding:8px 12px!important;}',
+    '.report-banner{margin:0!important;padding:0!important;}',
+    '.report-footer{margin:16px 0 0 0!important;padding:0!important;}',
     '.report-banner td,.report-footer td{background-color:#16265f!important;}',
     '.report-banner .banner-title{color:#ffffff!important;}',
     '.report-banner .banner-subtitle{color:#dfe5f5!important;}',
@@ -2059,20 +2114,20 @@ function getOutlookExportStyles(){
     '.blocker-point:last-child{margin-bottom:0!important;}',
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
-    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:460px!important;max-width:460px!important;min-width:460px!important;table-layout:fixed!important;}',
-    '#tblExecSummary td:first-child{width:340px!important;}',
+    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:466px!important;max-width:466px!important;min-width:466px!important;table-layout:fixed!important;}',
+    '#tblExecSummary td:first-child{width:346px!important;}',
     '#tblExecSummary td:nth-child(2){width:120px!important;}',
-    '#tbl33,#blockersPanel,table.blockers-panel{width:460px!important;max-width:460px!important;min-width:460px!important;table-layout:fixed!important;}',
+    '#tbl33,#blockersPanel,table.blockers-panel{width:466px!important;max-width:466px!important;min-width:466px!important;table-layout:fixed!important;}',
     '#tbl33 td:first-child{width:160px!important;}',
     '#tbl33 td:nth-child(2){width:52px!important;}',
-    '#tbl33 td:nth-child(3){width:248px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
+    '#tbl33 td:nth-child(3){width:254px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
     '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
     '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
     '.report-banner,.report-footer,.report-two-col{width:940px!important;max-width:940px!important;table-layout:fixed!important;}',
-    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:460px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:20px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:460px!important;}',
+    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:466px!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:8px!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:466px!important;}',
     '.report-two-col td{vertical-align:top!important;}'
   ].join('');
 }
