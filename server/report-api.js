@@ -269,6 +269,80 @@ function mergeIssuesByKey(primary, secondary) {
   return Object.keys(map).map(function (key) { return map[key]; });
 }
 
+function calendarDateInTz(isoOrDate, timeZone) {
+  var d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  if (isNaN(d.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZone || 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
+  } catch (e) {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+function isCreatedTodayInReportTz(iso) {
+  if (!iso) return false;
+  return calendarDateInTz(iso) === calendarDateInTz(new Date());
+}
+
+function commentBodyPlainText(body) {
+  if (!body) return '';
+  if (typeof body === 'string') return body;
+  return jiraParse.adfToPlainText(body);
+}
+
+function isVerifiedOnUatComment(comment) {
+  if (!comment) return false;
+  var author = (comment.author && (comment.author.displayName || comment.author.name || '')) || '';
+  if (!/^kashan\s+altaf$/i.test(String(author).trim())) return false;
+  if (!isCreatedTodayInReportTz(comment.created)) return false;
+  var text = commentBodyPlainText(comment.body);
+  return /verified\s+on\s+uat/i.test(text);
+}
+
+async function fetchIssueComments(issueKey) {
+  if (!issueKey) return [];
+  var res = await jiraFetch(cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/comment?maxResults=100&orderBy=-created');
+  if (!res.ok) return [];
+  var data = await res.json();
+  return Array.isArray(data.comments) ? data.comments : [];
+}
+
+async function findUatTestingVerifiedToday(issues) {
+  var list = (issues || []).filter(function (issue) {
+    return issue && normalizeStatusName(issue.status) === 'uattesting';
+  });
+  var verified = [];
+  var concurrency = 6;
+  for (var i = 0; i < list.length; i += concurrency) {
+    var batch = list.slice(i, i + concurrency);
+    var results = await Promise.all(batch.map(async function (issue) {
+      try {
+        var comments = await fetchIssueComments(issue.key);
+        for (var c = 0; c < comments.length; c++) {
+          if (isVerifiedOnUatComment(comments[c])) {
+            return Object.assign({}, issue, {
+              verifiedOnUatToday: true,
+              fixedToday: true,
+              verifiedCommentCreated: comments[c].created || '',
+              timestamp: jiraParse.formatIssueDate(comments[c].created || issue.updated || issue.created)
+            });
+          }
+        }
+      } catch (e) {}
+      return null;
+    }));
+    results.forEach(function (issue) {
+      if (issue) verified.push(issue);
+    });
+  }
+  return verified;
+}
+
 function bucketIssues(issues) {
   var buckets = { open: [], fixed: [], retest: [], closed: [], other: [] };
   (issues || []).forEach(function (issue) {
@@ -296,6 +370,9 @@ async function fetchReportIssues() {
   var todayDefectIssues = filterReportIssues(await jiraSearch(todayDefectJqlStr));
   var fixedTodayIssues = filterReportIssues(await jiraSearch(fixedTodayJqlStr));
   var canceledTodayIssues = await jiraSearch(canceledTodayJqlStr);
+  var uatTestingIssues = filterReportIssues(await jiraSearch(cfg.uatTestingBugsJql()));
+  var verifiedOnUatTodayIssues = await findUatTestingVerifiedToday(uatTestingIssues);
+  fixedTodayIssues = mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues);
   var enhancementIssues = await jiraSearch(enhancementsJqlStr);
   var enhancementFixedTodayIssues = await jiraSearch(enhancementsFixedTodayJqlStr);
   enhancementFixedTodayIssues.forEach(function (issue) {
@@ -331,6 +408,13 @@ async function fetchReportIssues() {
   regressionIssues.forEach(function (issue) { issue.regression = true; });
   var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
   fixedTodayIssues.forEach(function (issue) {
+    if (issue.verifiedOnUatToday) {
+      issue.fixedToday = true;
+      if (issue.verifiedCommentCreated) {
+        issue.timestamp = jiraParse.formatIssueDate(issue.verifiedCommentCreated);
+      }
+      return;
+    }
     issue.fixedToday = true;
     issue.timestamp = jiraParse.formatIssueDate(issue.updated || issue.created);
   });
@@ -348,8 +432,22 @@ async function fetchReportIssues() {
     return !!fixedTodayKeys[issue.key];
   });
   var buckets = bucketIssues(trackerIssues);
+  var verifiedOnUatKeys = {};
+  verifiedOnUatTodayIssues.forEach(function (issue) { verifiedOnUatKeys[issue.key] = true; });
+  buckets.retest = (buckets.retest || []).filter(function (issue) { return !verifiedOnUatKeys[issue.key]; });
+  trackerIssues.forEach(function (issue) {
+    if (!issue || !verifiedOnUatKeys[issue.key]) return;
+    var matched = verifiedOnUatTodayIssues.filter(function (v) { return v.key === issue.key; })[0];
+    issue.verifiedOnUatToday = true;
+    issue.fixedToday = true;
+    if (matched && matched.verifiedCommentCreated) {
+      issue.verifiedCommentCreated = matched.verifiedCommentCreated;
+      issue.timestamp = matched.timestamp || issue.timestamp;
+    }
+  });
   var defectLogIssues = mergeIssuesByKey(openToDoIssues, mergeIssuesByKey(todayDefectIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(canceledTodayIssues, mergeIssuesByKey(todayIssues, buckets.retest || [])))));
   defectLogIssues = defectLogIssues.filter(function (issue) {
+    if (issue && issue.verifiedOnUatToday) return !!fixedTodayKeys[issue.key];
     if (isFixedStatus(issue.status)) return isEligibleFixedIssue(issue, fixedTodayKeys);
     var s = normalizeStatusName(issue.status);
     if (s === 'canceled' || s === 'cancelled') return !!canceledTodayKeys[issue.key];

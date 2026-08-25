@@ -3241,6 +3241,7 @@ function isAwaitingPrDeployment(issue){
 
 function bucketIssueByStatus(issue){
   if(issue && issue.source === 'ado') return bucketAdoIssue(issue);
+  if(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue)) return 'fixed';
   var s = normalizeJiraStatusName(issue.status);
   if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrApprovalStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
@@ -3272,6 +3273,7 @@ function formatAdoStatusLabel(status){
 }
 
 function formatStatusLabel(status, issue){
+  if(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue)) return 'Fixed';
   var s = normalizeJiraStatusName(status);
   if(isAwaitingPrApprovalStatusName(s) || /^awaiting\s*pr\s*approval$/i.test(String(status || '').trim())) return 'Awaiting PR Approval';
   if(isAwaitingPrDeployment(issue)) return 'Awaiting PR Deployment';
@@ -3331,6 +3333,12 @@ function isIssueDateToday(issue){
 function isIssueFixedToday(issue){
   if(!issue) return false;
   if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueDateToday(issue);
+  if(issue.verifiedOnUatToday){
+    if(issue.verifiedCommentCreated){
+      return isIssueDateToday({ created: issue.verifiedCommentCreated, updated: issue.verifiedCommentCreated });
+    }
+    return isIssueDateToday(issue);
+  }
   var s = normalizeJiraStatusName(issue.status);
   if(s !== 'createprdpr' && s !== 'done') return false;
   // fixedToday from a previous day must not keep the row after the date passes
@@ -3357,6 +3365,7 @@ function isDefectLogEligible(issue){
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
+  if(issue.verifiedOnUatToday) return isIssueFixedToday(issue);
   if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrApprovalStatusName(s)) return true;
   if(s === 'uattesting') return true;
   if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
@@ -3438,7 +3447,9 @@ function applySyncDataToTracker(issueMap, todayIssues, syncSource, fixedTodayIss
 
   fillTrackerRowByLabel('New bugs raised today', today);
   fillTrackerRowByLabel('Open / Pending dev fix', excludeTodayFromOpen(openRowIssues, today));
-  fillTrackerRowByLabel('In retest (fix deployed, under re-verification)', buckets.retest);
+  fillTrackerRowByLabel('In retest (fix deployed, under re-verification)', (buckets.retest || []).filter(function(issue){
+    return !(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue));
+  }));
   fillTrackerRowByLabel('Fixed (verified in this session)', fixedToday);
   fillTrackerRowByLabel('Parked / Deferred', parkedToday);
   if(regressionIssues !== undefined) fillTrackerRowByLabel('Regression bugs (previously fixed, re-appeared)', regression);
@@ -4065,7 +4076,9 @@ function applyJiraPayload(payload){
   var fixedTodayIssues = filterReportIssues(payload.fixedTodayIssues || [], 'jira');
   fixedTodayIssues.forEach(function(issue){
     issue.fixedToday = true;
-    if(issue.updated || issue.created){
+    if(issue.verifiedOnUatToday && issue.verifiedCommentCreated){
+      issue.timestamp = formatIssueDate(issue.verifiedCommentCreated);
+    } else if(issue.updated || issue.created){
       issue.timestamp = formatIssueDate(issue.updated || issue.created);
     }
   });

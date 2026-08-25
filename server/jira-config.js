@@ -219,6 +219,15 @@ function activeBugsJql(extra) {
   return jql + ' ORDER BY created DESC';
 }
 
+/** Bugs/Sub-tasks currently in UAT-Testing (for Verified on UAT comment check) */
+function uatTestingBugsJql(extra) {
+  var jql = BASE_JQL +
+    ' AND created >= "' + OPEN_BUGS_SINCE + '"' +
+    ' AND status = "' + STATUS.RETEST + '"';
+  if (extra) jql += ' AND ' + extra;
+  return jql + ' ORDER BY updated DESC';
+}
+
 module.exports = {
   JIRA_BASE_URL,
   JIRA_EMAIL,
@@ -251,6 +260,7 @@ module.exports = {
   enhancementsFixedTodayJql,
   regressionBugsJql,
   activeBugsJql,
+  uatTestingBugsJql,
   browseUrl: function (key) {
     return JIRA_BASE_URL + '/browse/' + key;
   }
