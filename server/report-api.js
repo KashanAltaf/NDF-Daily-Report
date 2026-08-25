@@ -341,8 +341,10 @@ function isVerifiedStayOutStatus(statusName) {
 /**
  * Scan candidates for Verified on UAT comments.
  * Today → report as Fixed; older date + UAT-Testing/Fixed status → exclude from report.
+ * If comments cannot be read, JQL-matched keys stay excluded (fail closed).
  */
-async function annotateVerifiedOnUat(issues) {
+async function annotateVerifiedOnUat(issues, jqlMatchedKeys) {
+  var jqlKeys = jqlMatchedKeys || {};
   var seen = {};
   var list = [];
   (issues || []).forEach(function (issue) {
@@ -351,14 +353,27 @@ async function annotateVerifiedOnUat(issues) {
     seen[issue.key] = true;
     list.push(issue);
   });
+  Object.keys(jqlKeys).forEach(function (key) {
+    if (seen[key]) return;
+    // Ensure JQL hits are represented even if missing from the candidate issue list
+    seen[key] = true;
+    list.push({ key: key, status: 'UAT-Testing' });
+  });
   var todayIssues = [];
   var excludedKeys = {};
+  // Fail closed: any JQL hit starts as excluded until proven "verified today"
+  Object.keys(jqlKeys).forEach(function (key) { excludedKeys[key] = true; });
+
   var concurrency = 6;
   for (var i = 0; i < list.length; i += concurrency) {
     var batch = list.slice(i, i + concurrency);
     var results = await Promise.all(batch.map(async function (issue) {
       try {
         var comments = await fetchIssueComments(issue.key);
+        if (!comments.length) {
+          // No comments readable — keep JQL exclusion if present; otherwise skip
+          return jqlKeys[issue.key] ? { kind: 'excluded', key: issue.key } : null;
+        }
         for (var c = 0; c < comments.length; c++) {
           if (!isVerifiedOnUatCommentMatch(comments[c])) continue;
           var created = comments[c].created || '';
@@ -375,13 +390,21 @@ async function annotateVerifiedOnUat(issues) {
           }
           return { kind: 'excluded', key: issue.key };
         }
-      } catch (e) {}
+        // Comments loaded but no Kashan "Verified on UAT" — clear false JQL hit
+        if (jqlKeys[issue.key]) return { kind: 'clear', key: issue.key };
+      } catch (e) {
+        if (jqlKeys[issue.key]) return { kind: 'excluded', key: issue.key };
+      }
       return null;
     }));
     results.forEach(function (result) {
       if (!result) return;
-      if (result.kind === 'today' && result.issue) todayIssues.push(result.issue);
+      if (result.kind === 'today' && result.issue) {
+        todayIssues.push(result.issue);
+        delete excludedKeys[result.issue.key];
+      }
       if (result.kind === 'excluded' && result.key) excludedKeys[result.key] = true;
+      if (result.kind === 'clear' && result.key) delete excludedKeys[result.key];
     });
   }
   return { todayIssues: todayIssues, excludedKeys: excludedKeys };
@@ -424,9 +447,22 @@ async function fetchReportIssues() {
   var canceledTodayIssues = await jiraSearch(canceledTodayJqlStr);
   var uatTestingIssues = filterReportIssues(await jiraSearch(cfg.uatTestingBugsJql()));
   var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
-  // Only scan UAT-Testing + Fixed-today (avoid comment-fetching every Create-PRD-PR)
-  var verifiedScanCandidates = mergeIssuesByKey(uatTestingIssues, fixedTodayIssues);
-  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates);
+  var verifiedJqlIssues = [];
+  try {
+    verifiedJqlIssues = filterReportIssues(await jiraSearch(cfg.verifiedOnUatCommentJql()));
+  } catch (e) {
+    verifiedJqlIssues = [];
+  }
+  var verifiedJqlKeys = {};
+  verifiedJqlIssues.forEach(function (issue) {
+    if (issue && issue.key) verifiedJqlKeys[issue.key] = true;
+  });
+  // Scan UAT-Testing + Fixed-today + any JQL comment hits
+  var verifiedScanCandidates = mergeIssuesByKey(
+    uatTestingIssues,
+    mergeIssuesByKey(fixedTodayIssues, verifiedJqlIssues)
+  );
+  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates, verifiedJqlKeys);
   var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
   var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
   fixedTodayIssues = withoutVerifiedStayOut(mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues), verifiedExcludedKeys);

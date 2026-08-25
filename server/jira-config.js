@@ -228,6 +228,19 @@ function uatTestingBugsJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
+/**
+ * UAT-Testing issues whose comments mention Verified on UAT (Jira text search).
+ * Primary stay-out signal when per-issue comment fetch is flaky in production.
+ */
+function verifiedOnUatCommentJql(extra) {
+  var jql = BASE_JQL +
+    ' AND created >= "' + OPEN_BUGS_SINCE + '"' +
+    ' AND status = "' + STATUS.RETEST + '"' +
+    ' AND comment ~ "\\"Verified on UAT\\""';
+  if (extra) jql += ' AND ' + extra;
+  return jql + ' ORDER BY updated DESC';
+}
+
 module.exports = {
   JIRA_BASE_URL,
   JIRA_EMAIL,
@@ -261,6 +274,7 @@ module.exports = {
   regressionBugsJql,
   activeBugsJql,
   uatTestingBugsJql,
+  verifiedOnUatCommentJql,
   browseUrl: function (key) {
     return JIRA_BASE_URL + '/browse/' + key;
   }
