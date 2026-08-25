@@ -6,6 +6,8 @@ var { authenticator } = require('otplib');
 var SESSION_TTL_MS = 60 * 60 * 1000;
 var SESSION_COOKIE = 'qa_session';
 var TOTP_ISSUER = 'NDF Daily QA Report';
+// Temporarily disable login/OTP gate. Set to false to re-enable auth.
+var AUTH_DISABLED = true;
 
 authenticator.options = { window: 1 };
 
@@ -24,6 +26,7 @@ function getAllowedEmail() {
 }
 
 function isAuthEnabled() {
+  if (AUTH_DISABLED) return false;
   if (!getAuthSecret() || getAuthSecret().length < 16) return false;
   if (!getAllowedEmail()) return false;
   if (!getTotpSecret() || getTotpSecret().length < 16) return false;
