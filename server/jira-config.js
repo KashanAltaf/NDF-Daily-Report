@@ -70,7 +70,7 @@ const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress'
 const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
 const CLOSED_STATUSES = [];
-/** Only Canceled is fully excluded; UAT-PR-Approval maps to Awaiting PR Deployment */
+/** Only Canceled is fully excluded; UAT-PR-Approval maps to Awaiting PR Approval */
 const EXCLUDED_STATUSES = [STATUS.CANCELED];
 
 function excludedStatusesInJql() {

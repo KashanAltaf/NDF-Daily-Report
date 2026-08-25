@@ -18,7 +18,8 @@ const OPEN_BUGS_SINCE = (process.env.ADO_OPEN_BUGS_SINCE || process.env.JIRA_OPE
  *   Resolved/Closed -> Fixed         (Jira Create-PRD-PR; defect log only if created today)
  *   Active/Reopened -> In retest     (Jira UAT-Testing)
  *   Rejected       -> excluded
- *   (Jira UAT-PR-Approval / UAT-Deployment / UAT-MERGE-ISSUE -> Awaiting PR Deployment)
+ *   (Jira UAT-Deployment / UAT-MERGE-ISSUE -> Awaiting PR Deployment;
+ *    UAT-PR-Approval -> Awaiting PR Approval)
  */
 const STATUS = {
   OPEN: 'New',

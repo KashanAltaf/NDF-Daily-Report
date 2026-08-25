@@ -3224,20 +3224,25 @@ function isNewOrOpenIssue(issue){
 }
 
 function isAwaitingPrDeploymentStatusName(s){
-  return s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval';
+  return s === 'uatdeployment' || s === 'uatmergeissue';
+}
+
+function isAwaitingPrApprovalStatusName(s){
+  return s === 'uatprapproval';
 }
 
 function isAwaitingPrDeployment(issue){
   if(!issue) return false;
   var s = normalizeJiraStatusName(issue.status);
   if(isAwaitingPrDeploymentStatusName(s)) return true;
+  if(isAwaitingPrApprovalStatusName(s)) return false;
   return isNewOrOpenIssue(issue) && hasAttachedPr(issue);
 }
 
 function bucketIssueByStatus(issue){
   if(issue && issue.source === 'ado') return bucketAdoIssue(issue);
   var s = normalizeJiraStatusName(issue.status);
-  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return 'open';
+  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrApprovalStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
   if(s === 'uattesting') return 'retest';
   if(s === 'canceled' || s === 'cancelled') return 'closed';
@@ -3267,9 +3272,10 @@ function formatAdoStatusLabel(status){
 }
 
 function formatStatusLabel(status, issue){
+  var s = normalizeJiraStatusName(status);
+  if(isAwaitingPrApprovalStatusName(s) || /^awaiting\s*pr\s*approval$/i.test(String(status || '').trim())) return 'Awaiting PR Approval';
   if(isAwaitingPrDeployment(issue)) return 'Awaiting PR Deployment';
   if(issue && issue.source === 'ado') return formatAdoStatusLabel(status);
-  var s = normalizeJiraStatusName(status);
   if(isAwaitingPrDeploymentStatusName(s) || /^awaiting\s*pr\s*deployment$/i.test(String(status || '').trim())) return 'Awaiting PR Deployment';
   if(isOpenJiraStatusName(s)) return 'Open';
   if(s === 'createprdpr' || s === 'done') return 'Fixed';
@@ -3351,7 +3357,7 @@ function isDefectLogEligible(issue){
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
-  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return true;
+  if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrApprovalStatusName(s)) return true;
   if(s === 'uattesting') return true;
   if(s === 'createprdpr' || s === 'done') return isIssueFixedToday(issue);
   return false;
@@ -3500,7 +3506,9 @@ function applyStatusCellStyle(cell, status, issue){
   var statusKey = normalizeJiraStatusName(status);
   var bg = '#ffffff';
   var color = '#222222';
-  if(labelKey === 'awaitingprdeployment' || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrDeployment(issue)){
+  if(labelKey === 'awaitingprapproval' || isAwaitingPrApprovalStatusName(s)){
+    bg = '#fff3cd'; color = '#7a5c00';
+  } else if(labelKey === 'awaitingprdeployment' || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrDeployment(issue)){
     bg = '#fff3cd'; color = '#7a5c00';
   } else if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || labelKey === 'open'){
     bg = '#cfe2ff'; color = '#0d3d7a';
