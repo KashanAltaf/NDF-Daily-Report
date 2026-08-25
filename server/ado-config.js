@@ -17,7 +17,8 @@ const OPEN_BUGS_SINCE = (process.env.ADO_OPEN_BUGS_SINCE || process.env.JIRA_OPE
  *   New            -> Open          (Jira To Do)
  *   Resolved/Closed -> Fixed         (Jira Create-PRD-PR; defect log only if created today)
  *   Active/Reopened -> In retest     (Jira UAT-Testing)
- *   Rejected       -> excluded       (Jira UAT-PR-Approval)
+ *   Rejected       -> excluded
+ *   (Jira UAT-PR-Approval / UAT-Deployment / UAT-MERGE-ISSUE -> Awaiting PR Deployment)
  */
 const STATUS = {
   OPEN: 'New',
@@ -62,7 +63,7 @@ function todayDefectLogWiql() {
     STATUS.FIXED.replace(/'/g, "''") + "', 'Resolved') ORDER BY [System.CreatedDate] DESC";
 }
 
-/** Active bugs for tracker buckets (excludes fully closed Rejected, same role as Jira != UAT-PR-Approval) */
+/** Active bugs for tracker buckets (excludes fully closed Rejected) */
 function activeBugsWiql() {
   return 'SELECT [System.Id] FROM WorkItems WHERE ' + baseWiqlParts().join(' AND ') +
     " AND [System.CreatedDate] >= '" + OPEN_BUGS_SINCE + "'" +

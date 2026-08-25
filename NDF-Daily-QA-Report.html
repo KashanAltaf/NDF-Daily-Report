@@ -2942,7 +2942,7 @@ var TRACKER_SYNC_LABELS = {
 var JIRA_OPEN_BUGS_KEY = 'ndf-qa-open-bugs-jira-v1';
 var ADO_OPEN_BUGS_KEY = 'ndf-qa-open-bugs-ado-v1';
 var TRACKER_TOTAL_EXCLUDE = ['Fixed (verified in this session)', 'Parked / Deferred', 'Parked / Deferred (with reason)', 'Total active defects'];
-var JIRA_CLOSED_STATUS = 'UAT-PR-Approval';
+var JIRA_CLOSED_STATUS = 'CANCELED';
 var JIRA_FIXED_STATUS = 'Create-PRD-PR';
 var API_BASE = '';
 var JIRA_API_BASE = '';
@@ -3000,7 +3000,7 @@ function normalizeJiraStatusName(s){
 
 function isClosedJiraStatus(status){
   var s = normalizeJiraStatusName(status);
-  return s === 'uatprapproval' || s === 'canceled' || s === 'cancelled';
+  return s === 'canceled' || s === 'cancelled';
 }
 
 function isCanceledJiraStatus(status){
@@ -3224,7 +3224,7 @@ function isNewOrOpenIssue(issue){
 }
 
 function isAwaitingPrDeploymentStatusName(s){
-  return s === 'uatdeployment' || s === 'uatmergeissue';
+  return s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval';
 }
 
 function isAwaitingPrDeployment(issue){
@@ -3240,7 +3240,7 @@ function bucketIssueByStatus(issue){
   if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
   if(s === 'uattesting') return 'retest';
-  if(s === 'uatprapproval' || s === 'canceled' || s === 'cancelled') return 'closed';
+  if(s === 'canceled' || s === 'cancelled') return 'closed';
   return 'other';
 }
 
@@ -3349,7 +3349,7 @@ function isDefectLogEligible(issue){
   if(issue.source === 'ado') return isAdoDefectLogEligible(issue);
   if(isEnhancementEligibleIssue(issue)) return false;
   var s = normalizeJiraStatusName(issue.status);
-  if(s === 'improvement' || s === 'uatprapproval') return false;
+  if(s === 'improvement') return false;
   if(s === 'canceled' || s === 'cancelled') return isIssueCanceledToday(issue);
   if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s)) return true;
   if(s === 'uattesting') return true;

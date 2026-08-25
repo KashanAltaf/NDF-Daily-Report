@@ -69,8 +69,9 @@ const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress'
 /** Create-PRD-PR and Done both display as Fixed in the report */
 const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
-const CLOSED_STATUSES = [STATUS.CLOSED];
-const EXCLUDED_STATUSES = [STATUS.CLOSED, STATUS.CANCELED];
+const CLOSED_STATUSES = [];
+/** Only Canceled is fully excluded; UAT-PR-Approval maps to Awaiting PR Deployment */
+const EXCLUDED_STATUSES = [STATUS.CANCELED];
 
 function excludedStatusesInJql() {
   return EXCLUDED_STATUSES.map(function (s) { return '"' + s + '"'; }).join(', ');
@@ -145,7 +146,7 @@ function openBugsJql(extra) {
 }
 
 function awaitingPrDeploymentStatusesInJql() {
-  return '"' + STATUS.DEPLOYMENT + '", "' + STATUS.MERGE + '"';
+  return '"' + STATUS.DEPLOYMENT + '", "' + STATUS.MERGE + '", "' + STATUS.CLOSED + '"';
 }
 
 /** Today's bugs for defect log — open statuses created today, Awaiting PR Deployment statuses, Fixed/Done today, or Canceled today */
@@ -209,7 +210,7 @@ function regressionBugsJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
-/** Active bugs for tracker buckets (excludes closed UAT-PR-Approval, Canceled, and historical Done) */
+/** Active bugs for tracker buckets (excludes Canceled and historical Done) */
 function activeBugsJql(extra) {
   var jql = BASE_JQL +
     ' AND created >= "' + OPEN_BUGS_SINCE + '"' +
