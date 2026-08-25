@@ -3050,6 +3050,7 @@ function isSalesPortalModule(issue){
 
 function isReportExcludedJiraIssue(issue){
   if(!issue || issue.source === 'ado') return false;
+  if(issue.verifiedOnUatExcluded) return true;
   return isClosedJiraStatus(issue.status) || normalizeJiraStatusName(issue.status) === 'improvement';
 }
 
@@ -3332,6 +3333,7 @@ function isIssueDateToday(issue){
 
 function isIssueFixedToday(issue){
   if(!issue) return false;
+  if(issue.verifiedOnUatExcluded) return false;
   if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueDateToday(issue);
   if(issue.verifiedOnUatToday){
     if(issue.verifiedCommentCreated){
@@ -3361,6 +3363,7 @@ function isAdoDefectLogEligible(issue){
 function isDefectLogEligible(issue){
   if(!issue) return false;
   if(issue.source === 'ado') return isAdoDefectLogEligible(issue);
+  if(issue.verifiedOnUatExcluded) return false;
   if(isEnhancementEligibleIssue(issue)) return false;
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return false;
@@ -3448,6 +3451,7 @@ function applySyncDataToTracker(issueMap, todayIssues, syncSource, fixedTodayIss
   fillTrackerRowByLabel('New bugs raised today', today);
   fillTrackerRowByLabel('Open / Pending dev fix', excludeTodayFromOpen(openRowIssues, today));
   fillTrackerRowByLabel('In retest (fix deployed, under re-verification)', (buckets.retest || []).filter(function(issue){
+    if(issue && issue.verifiedOnUatExcluded) return false;
     return !(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue));
   }));
   fillTrackerRowByLabel('Fixed (verified in this session)', fixedToday);
