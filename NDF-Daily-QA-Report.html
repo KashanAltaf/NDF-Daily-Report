@@ -4044,7 +4044,9 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
     var placeholderRow = rows[rows.length - 1];
 
     for(var i = 1; i < rows.length - 1; i++){
-      if(rows[i].getAttribute('data-tracker-sync') === 'true') rows[i].remove();
+      if(rows[i].getAttribute('data-tracker-sync') === 'true' || rows[i].getAttribute('data-issue-sync-source') === syncSource){
+        rows[i].remove();
+      }
     }
 
     rows = tbl.querySelectorAll('tr');
@@ -4069,6 +4071,58 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
   } finally {
     syncingDefectLog = false;
   }
+}
+
+function removeIssueKeysFromReport(keys){
+  var set = {};
+  (keys || []).forEach(function(key){
+    var norm = normalizeIssueKey(key);
+    if(norm) set[norm.toUpperCase()] = true;
+  });
+  if(!Object.keys(set).length) return;
+
+  var tracker = document.getElementById('tbl33');
+  if(tracker){
+    for(var r = 0; r < tracker.rows.length; r++){
+      var row = tracker.rows[r];
+      var cell = row.cells[2];
+      if(!cell) continue;
+      var kept = parseJiraEntriesFromCell(cell).filter(function(entry){
+        var k = normalizeIssueKey(entry && (entry.key || entry.text));
+        return !(k && set[k.toUpperCase()]);
+      });
+      if(kept.length) renderJiraLinksInCell(cell, kept);
+      else cell.innerHTML = '';
+      if(row.cells[1]) row.cells[1].textContent = kept.length ? String(kept.length) : '';
+    }
+    updateTotalActiveDefectsFromTracker();
+  }
+
+  var defectTbl = document.getElementById('tbl36');
+  if(defectTbl){
+    for(var i = defectTbl.rows.length - 2; i >= 1; i--){
+      var drow = defectTbl.rows[i];
+      if(!drow || isPlaceholderRow(drow)) continue;
+      var dkey = normalizeIssueKey(getDefectLogJiraKey(drow));
+      if(dkey && set[dkey.toUpperCase()]) drow.remove();
+    }
+  }
+
+  if(typeof lastJiraIssueMap === 'object' && lastJiraIssueMap){
+    Object.keys(lastJiraIssueMap).forEach(function(mk){
+      if(set[String(mk).toUpperCase()]) delete lastJiraIssueMap[mk];
+    });
+  }
+  try {
+    var storageKey = persistentStorageKeyForSource('jira');
+    var map = loadPersistentOpenBugs(storageKey);
+    Object.keys(set).forEach(function(k){
+      Object.keys(map).forEach(function(mk){
+        if(String(mk).toUpperCase() === k) delete map[mk];
+      });
+    });
+    savePersistentOpenBugs(storageKey, map);
+  } catch(e){}
 }
 
 function applyJiraPayload(payload){
@@ -4115,6 +4169,7 @@ function applyJiraPayload(payload){
   lastJiraIssueMap = trackerMap;
   applySyncDataToTracker(trackerMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
   syncDefectLogFromIssueMap(defectMap, 'jira');
+  removeIssueKeysFromReport(payload.verifiedExcludedKeys || []);
   purgeAndDedupeIssueSections();
   scheduleDefectLogSync();
   if(repairEnhancementsSection() || repairSalesPortalEnhancementsSection()){

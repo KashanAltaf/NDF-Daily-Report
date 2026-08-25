@@ -424,12 +424,8 @@ async function fetchReportIssues() {
   var canceledTodayIssues = await jiraSearch(canceledTodayJqlStr);
   var uatTestingIssues = filterReportIssues(await jiraSearch(cfg.uatTestingBugsJql()));
   var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
-  var verifiedScanCandidates = mergeIssuesByKey(
-    uatTestingIssues,
-    mergeIssuesByKey(fixedTodayIssues, (trackerIssues || []).filter(function (issue) {
-      return isVerifiedStayOutStatus(issue && issue.status);
-    }))
-  );
+  // Only scan UAT-Testing + Fixed-today (avoid comment-fetching every Create-PRD-PR)
+  var verifiedScanCandidates = mergeIssuesByKey(uatTestingIssues, fixedTodayIssues);
   var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates);
   var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
   var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
@@ -574,6 +570,7 @@ async function fetchReportIssues() {
     issues: defectLogIssues,
     activeIssues: trackerIssues,
     buckets: buckets,
+    verifiedExcludedKeys: Object.keys(verifiedExcludedKeys || {}),
     statusMap: cfg.STATUS,
     closedStatuses: cfg.EXCLUDED_STATUSES
   };
