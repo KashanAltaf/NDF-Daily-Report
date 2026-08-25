@@ -4,11 +4,17 @@ var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oc
 
 function adfToPlainText(node) {
   if (!node) return '';
+  if (typeof node === 'string') return node;
   if (node.type === 'text') return node.text || '';
   if (node.type === 'hardBreak') return '\n';
+  if (node.type === 'mention') {
+    return (node.attrs && (node.attrs.text || node.attrs.displayName)) || '';
+  }
+  if (node.type === 'emoji' && node.attrs && node.attrs.shortName) return node.attrs.shortName;
   if (Array.isArray(node.content)) {
     return node.content.map(adfToPlainText).join('');
   }
+  if (node.attrs && node.attrs.text) return String(node.attrs.text);
   return '';
 }
 

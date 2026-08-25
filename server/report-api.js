@@ -295,13 +295,41 @@ function commentBodyPlainText(body) {
   return jiraParse.adfToPlainText(body);
 }
 
+async function fetchIssueComments(issueKey) {
+  if (!issueKey) return [];
+  var base = cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/comment?maxResults=100';
+  var urls = [base + '&orderBy=-created', base];
+  for (var u = 0; u < urls.length; u++) {
+    try {
+      var res = await jiraFetch(urls[u]);
+      if (!res.ok) continue;
+      var data = await res.json();
+      var comments = Array.isArray(data.comments) ? data.comments.slice() : [];
+      comments.sort(function (a, b) {
+        return String(b.created || '').localeCompare(String(a.created || ''));
+      });
+      return comments;
+    } catch (e) {}
+  }
+  return [];
+}
+
+function commentHasVerifiedOnUatText(comment) {
+  if (!comment) return false;
+  if (/verified\s+on\s+uat/i.test(commentBodyPlainText(comment.body))) return true;
+  try {
+    if (/verified\s+on\s+uat/i.test(JSON.stringify(comment.body || ''))) return true;
+  } catch (e) {}
+  if (typeof comment.renderedBody === 'string' && /verified\s+on\s+uat/i.test(comment.renderedBody)) return true;
+  return false;
+}
+
 /** Kashan Altaf comment containing "Verified on UAT" (any date) */
 function isVerifiedOnUatCommentMatch(comment) {
   if (!comment) return false;
-  var author = (comment.author && (comment.author.displayName || comment.author.name || '')) || '';
-  if (!/^kashan\s+altaf$/i.test(String(author).trim())) return false;
-  var text = commentBodyPlainText(comment.body);
-  return /verified\s+on\s+uat/i.test(text);
+  var author = (comment.author && (comment.author.displayName || comment.author.name || comment.author.publicName || '')) || '';
+  if (!/kashan\s+altaf/i.test(String(author))) return false;
+  return commentHasVerifiedOnUatText(comment);
 }
 
 /** Once verified, stay out of the report while still UAT-Testing or a Fixed Jira status */
@@ -310,21 +338,18 @@ function isVerifiedStayOutStatus(statusName) {
   return s === 'uattesting' || s === 'createprdpr' || s === 'done';
 }
 
-async function fetchIssueComments(issueKey) {
-  if (!issueKey) return [];
-  var res = await jiraFetch(cfg.JIRA_BASE_URL + '/rest/api/3/issue/' + encodeURIComponent(issueKey) + '/comment?maxResults=100&orderBy=-created');
-  if (!res.ok) return [];
-  var data = await res.json();
-  return Array.isArray(data.comments) ? data.comments : [];
-}
-
 /**
  * Scan candidates for Verified on UAT comments.
  * Today → report as Fixed; older date + UAT-Testing/Fixed status → exclude from report.
  */
 async function annotateVerifiedOnUat(issues) {
-  var list = (issues || []).filter(function (issue) {
-    return issue && issue.key && isVerifiedStayOutStatus(issue.status);
+  var seen = {};
+  var list = [];
+  (issues || []).forEach(function (issue) {
+    if (!issue || !issue.key || !isVerifiedStayOutStatus(issue.status)) return;
+    if (seen[issue.key]) return;
+    seen[issue.key] = true;
+    list.push(issue);
   });
   var todayIssues = [];
   var excludedKeys = {};
@@ -398,11 +423,21 @@ async function fetchReportIssues() {
   var fixedTodayIssues = filterReportIssues(await jiraSearch(fixedTodayJqlStr));
   var canceledTodayIssues = await jiraSearch(canceledTodayJqlStr);
   var uatTestingIssues = filterReportIssues(await jiraSearch(cfg.uatTestingBugsJql()));
-  var verifiedScanCandidates = mergeIssuesByKey(uatTestingIssues, fixedTodayIssues);
+  var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
+  var verifiedScanCandidates = mergeIssuesByKey(
+    uatTestingIssues,
+    mergeIssuesByKey(fixedTodayIssues, (trackerIssues || []).filter(function (issue) {
+      return isVerifiedStayOutStatus(issue && issue.status);
+    }))
+  );
   var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates);
   var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
   var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
   fixedTodayIssues = withoutVerifiedStayOut(mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues), verifiedExcludedKeys);
+  trackerIssues = withoutVerifiedStayOut(trackerIssues, verifiedExcludedKeys);
+  todayIssues = withoutVerifiedStayOut(todayIssues, verifiedExcludedKeys);
+  openToDoIssues = withoutVerifiedStayOut(openToDoIssues, verifiedExcludedKeys);
+  todayDefectIssues = withoutVerifiedStayOut(todayDefectIssues, verifiedExcludedKeys);
   var enhancementIssues = await jiraSearch(enhancementsJqlStr);
   var enhancementFixedTodayIssues = await jiraSearch(enhancementsFixedTodayJqlStr);
   enhancementFixedTodayIssues.forEach(function (issue) {
@@ -436,10 +471,6 @@ async function fetchReportIssues() {
   mergeSalesPortalEnhancementsFrom(todayDefectIssues);
   var regressionIssues = filterReportIssues(await jiraSearch(regressionJqlStr));
   regressionIssues.forEach(function (issue) { issue.regression = true; });
-  var trackerIssues = withoutVerifiedStayOut(filterReportIssues(await jiraSearch(activeJqlStr)), verifiedExcludedKeys);
-  todayIssues = withoutVerifiedStayOut(todayIssues, verifiedExcludedKeys);
-  openToDoIssues = withoutVerifiedStayOut(openToDoIssues, verifiedExcludedKeys);
-  todayDefectIssues = withoutVerifiedStayOut(todayDefectIssues, verifiedExcludedKeys);
   fixedTodayIssues.forEach(function (issue) {
     if (issue.verifiedOnUatToday) {
       issue.fixedToday = true;
