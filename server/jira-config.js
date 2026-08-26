@@ -97,12 +97,9 @@ function defaultModuleForProject(projectKey) {
 
 function fixedTodayClause() {
   return '(' +
-    'status in (' + fixedStatusesInJql() + ')' +
-    ' AND (' +
     'status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
-    ' OR created >= startOfDay()' +
-    ')' +
+    ' OR (created >= startOfDay() AND status in (' + fixedStatusesInJql() + '))' +
     ')';
 }
 

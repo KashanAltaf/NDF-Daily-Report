@@ -3229,7 +3229,7 @@ function isAwaitingPrDeploymentStatusName(s){
 }
 
 function isAwaitingPrApprovalStatusName(s){
-  return s === 'uatprapproval';
+  return s === 'uatprapproval' || s === 'prdprapproval';
 }
 
 function isAwaitingPrDeployment(issue){
@@ -3243,6 +3243,7 @@ function isAwaitingPrDeployment(issue){
 function bucketIssueByStatus(issue){
   if(issue && issue.source === 'ado') return bucketAdoIssue(issue);
   if(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue)) return 'fixed';
+  if(issue && issue.fixedToday && isIssueFixedToday(issue)) return 'fixed';
   var s = normalizeJiraStatusName(issue.status);
   if(isOpenJiraStatusName(s) || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrApprovalStatusName(s)) return 'open';
   if(s === 'createprdpr' || s === 'done') return 'fixed';
@@ -3275,6 +3276,7 @@ function formatAdoStatusLabel(status){
 
 function formatStatusLabel(status, issue){
   if(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue)) return 'Fixed';
+  if(issue && issue.fixedToday && isIssueFixedToday(issue)) return 'Fixed';
   var s = normalizeJiraStatusName(status);
   if(isAwaitingPrApprovalStatusName(s) || /^awaiting\s*pr\s*approval$/i.test(String(status || '').trim())) return 'Awaiting PR Approval';
   if(isAwaitingPrDeployment(issue)) return 'Awaiting PR Deployment';
@@ -3341,10 +3343,10 @@ function isIssueFixedToday(issue){
     }
     return isIssueDateToday(issue);
   }
+  // fixedToday from sync — include even if status moved past Create-PRD-PR (e.g. PRD-PR-APPROVAL)
+  if(issue.fixedToday === true) return isIssueDateToday(issue);
   var s = normalizeJiraStatusName(issue.status);
   if(s !== 'createprdpr' && s !== 'done') return false;
-  // fixedToday from a previous day must not keep the row after the date passes
-  if(issue.fixedToday === true) return isIssueDateToday(issue);
   // Done is today-only via sync flag + date
   if(s === 'done') return false;
   return isIssueCreatedToday(issue);
@@ -3440,8 +3442,11 @@ function applySyncDataToTracker(issueMap, todayIssues, syncSource, fixedTodayIss
     }));
   }
 
+  var fixedTodayKeys = {};
+  fixedToday.forEach(function(issue){ if(issue && issue.key) fixedTodayKeys[issue.key] = true; });
+
   var openRowIssues = mergeIssueArrays(filterReportIssues(openIssues || [], syncSource), buckets.open).filter(function(issue){
-    return (issue.source || syncSource) === syncSource && bucketIssueByStatus(issue) === 'open' && !regressionKeys[issue.key];
+    return (issue.source || syncSource) === syncSource && bucketIssueByStatus(issue) === 'open' && !regressionKeys[issue.key] && !fixedTodayKeys[issue.key];
   });
 
   var parkedToday = (canceledTodayIssues || []).filter(function(issue){
