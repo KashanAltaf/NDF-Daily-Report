@@ -237,6 +237,13 @@ function uatTestingBugsJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
+/** Issues updated today — scan for Verified on UAT comments even if status is still open (e.g. To Do) */
+function updatedTodayBugsJql(extra) {
+  var jql = BASE_JQL + ' AND updated >= startOfDay()';
+  if (extra) jql += ' AND ' + extra;
+  return jql + ' ORDER BY updated DESC';
+}
+
 /**
  * UAT-Testing issues whose comments mention Verified on UAT (Jira text search).
  * Primary stay-out signal when per-issue comment fetch is flaky in production.
@@ -283,6 +290,7 @@ module.exports = {
   regressionBugsJql,
   activeBugsJql,
   uatTestingBugsJql,
+  updatedTodayBugsJql,
   verifiedOnUatCommentJql,
   browseUrl: function (key) {
     return JIRA_BASE_URL + '/browse/' + key;
