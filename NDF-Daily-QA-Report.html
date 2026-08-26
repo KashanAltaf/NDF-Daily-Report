@@ -195,13 +195,11 @@
     padding:9px 12px;
     text-transform:uppercase;
     border-bottom:2px solid #92400e;
-    flex:0 0 auto;
-    height:auto;
   }
   .scope-panel-inner {
     padding:8px 10px;
     font-size:12.5px;
-    flex:1 1 auto;
+    flex:0 0 auto;
     display:block;
     min-height:0;
     background:#fdf3e3;
@@ -293,7 +291,7 @@
     color:#7f1d1d;
     line-height:1.4;
     background:#fef2f2;
-    flex:1 1 auto;
+    flex:0 0 auto;
     min-height:0;
     box-sizing:border-box;
     width:100%;
@@ -409,10 +407,28 @@
   }
   #report .scope-panel-inner,
   #report #scopeTestedToday,
-  #report .blockers-body,
-  #report #bugTrackerBlockers,
   #report #moduleCovered {
     font-size:12pt !important;
+  }
+  #report .blockers-body,
+  #report #bugTrackerBlockers {
+    font-size:12pt !important;
+  }
+  /* Blockers panel — compact, content-height only (live report) */
+  #report #blockersPanel.blockers-panel {
+    height:auto !important;
+    min-height:0;
+  }
+  #report #blockersPanel .blockers-header {
+    flex:0 0 auto;
+    height:auto !important;
+    line-height:1.25;
+  }
+  #report #blockersPanel .blockers-body,
+  #report #blockersPanel #bugTrackerBlockers {
+    flex:0 0 auto !important;
+    height:auto !important;
+    min-height:0;
   }
 </style>
 </head>
