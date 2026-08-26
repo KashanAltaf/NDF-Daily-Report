@@ -1223,7 +1223,7 @@ function applyLivePageOneFontsToOutlookClone(root){
   var scopeStyle = getLivePanelTextStyle(liveScopeEl, '12.5px', '1.4');
   var blockersStyle = getLivePanelTextStyle(liveBlockersEl, '12.5px', '1.45');
 
-  if(scopeContent){
+  if(scopeContent && liveScopeEl){
     exportStyleTd(scopeContent, {
       backgroundColor: '#fdf3e3',
       color: '#222222',
@@ -1240,6 +1240,7 @@ function applyLivePageOneFontsToOutlookClone(root){
       wordWrap: 'break-word',
       wordBreak: 'break-word'
     });
+    scopeContent.innerHTML = renderScopeForExport(liveScopeEl, true, liveScopeEl);
   }
   if(blockersContent){
     exportStyleTd(blockersContent, {
@@ -1309,6 +1310,7 @@ function repairOutlookPageOnePanels(root){
       wordWrap: 'break-word',
       wordBreak: 'break-word'
     });
+    scopeContent.innerHTML = renderScopeForExport(liveScopeEl, true, liveScopeEl);
     scopeContent.removeAttribute('height');
     scopeContent.style.height = '';
   }
@@ -1705,14 +1707,55 @@ function lockOutlookPageOneTableWidths(root){
   }
 }
 
-function copyForOutlook(){
+function refreshLiveReportBeforeExport(){
+  purgeAndDedupeIssueSections();
+  repairTrackerRowLabels();
+  updateTotalActiveDefectsFromTracker();
   syncPageOnePanelLayout();
+}
+
+function copyLiveTableIntoExportClone(tableId, clone){
+  var live = document.getElementById(tableId);
+  var target = clone.querySelector('#' + tableId);
+  if(!live || !target) return;
+  target.innerHTML = live.innerHTML;
+  if(live.getAttribute('style')) target.setAttribute('style', live.getAttribute('style'));
+}
+
+function syncExportPanelsFromLive(clone){
+  var liveScopeEl = document.getElementById('scopeTestedToday');
+  var liveBlockersEl = document.getElementById('bugTrackerBlockers');
+  var scopeContent = clone.querySelector('#scopeTestedToday');
+  var blockersContent = clone.querySelector('#bugTrackerBlockers');
+  if(scopeContent && liveScopeEl){
+    scopeContent.innerHTML = renderScopeForExport(liveScopeEl, true, liveScopeEl);
+  }
+  if(blockersContent && liveBlockersEl){
+    blockersContent.innerHTML = renderBlockersForExport(liveBlockersEl, true, liveBlockersEl);
+  }
+}
+
+function syncExportCloneFromLive(clone){
+  if(!clone) return;
+  ['tblExecSummary', 'tbl33', 'tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
+    copyLiveTableIntoExportClone(tableId, clone);
+  });
+  syncExportPanelsFromLive(clone);
+  var liveDate = document.querySelector('.banner-date-value');
+  var cloneDate = clone.querySelector('.banner-date-value');
+  if(liveDate && cloneDate) cloneDate.textContent = liveDate.textContent;
+}
+
+function copyForOutlook(){
+  refreshLiveReportBeforeExport();
   var clone = prepareReportCloneForExport();
+  syncExportCloneFromLive(clone);
   var holder = attachCloneForMeasure(clone);
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
   lockOutlookPageOneTableWidths(clone);
   bakeReproStepsForExport(clone, true);
+  bakeDefectCellColorsForExport(clone);
   sanitizeOutlookTableCells(clone);
   stripOutlookSpacerNoise(clone);
   var html = wrapOutlookHtml(clone.outerHTML);
