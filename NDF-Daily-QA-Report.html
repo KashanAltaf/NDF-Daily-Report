@@ -352,6 +352,24 @@
     word-break:break-word;
   }
   #moduleCovered.e:focus { outline:none; background:#e0e7ff !important; color:#222 !important; box-shadow:inset 0 0 0 2px #6366f1; border-radius:2px; }
+
+  /* Live report typography (does not affect Copy for Outlook export styles) */
+  #report .scope-panel-header,
+  #report .blockers-header,
+  #report .automation-module-header,
+  #report td[style*="font-size:16px"] {
+    font-size:13px !important;
+  }
+  #report table[id^="tbl"] {
+    font-size:12px !important;
+  }
+  #report .scope-panel-inner,
+  #report #scopeTestedToday,
+  #report .blockers-body,
+  #report #bugTrackerBlockers,
+  #report #moduleCovered {
+    font-size:12px !important;
+  }
 </style>
 </head>
 <body>
