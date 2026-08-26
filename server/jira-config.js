@@ -47,6 +47,18 @@ function reportersInJql() {
   return 'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')';
 }
 
+function assigneeInJql() {
+  return 'assignee in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')';
+}
+
+/** QA-reported bugs, or Sub-tasks assigned to QA (reporter is often the dev who created the sub-task) */
+function defectReporterJql() {
+  return '(' +
+    reportersInJql() +
+    ' OR (issuetype = Sub-task AND ' + assigneeInJql() + ')' +
+  ')';
+}
+
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
 
 /** Jira workflow statuses used by this report */
@@ -108,7 +120,7 @@ function buildBaseJqlParts() {
     projectJql(),
     // Sub-task uses the same defect log + bug tracker pipeline as Bug
     'issuetype in (Bug, "Sub-task")',
-    reportersInJql(),
+    defectReporterJql(),
   ];
   if (TEXT_FILTER) parts.push('(' + TEXT_FILTER + ')');
   return parts;
