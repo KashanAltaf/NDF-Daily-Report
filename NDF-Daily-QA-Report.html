@@ -1414,7 +1414,7 @@ function stripOutlookSpacerNoise(root){
 }
 
 function wrapOutlookHtml(bodyHtml){
-  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;}td{mso-line-height-rule:exactly;}p{margin:0;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;"><table role="presentation" width="940" cellpadding="0" cellspacing="0" border="0" style="width:940px;max-width:940px;border-collapse:collapse;margin:0;padding:0;"><tr><td width="940" valign="top" style="width:940px;padding:0;margin:0;vertical-align:top;">' + bodyHtml + '</td></tr></table></body></html>';
+  return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><!--[if mso]><style>table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;}td{mso-line-height-rule:exactly;}p{margin:0;}body,table,td{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}</style><![endif]--><style>' + getOutlookExportStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:940px;border-collapse:collapse;margin:0;padding:0;table-layout:fixed;"><tr><td width="100%" valign="top" style="width:100%;max-width:940px;padding:0;margin:0;vertical-align:top;">' + bodyHtml + '</td></tr></table></body></html>';
 }
 
 var PDF_FONT_SCALE = 0.8;
@@ -1584,10 +1584,20 @@ function copyForOutlookViaSelection(clone){
 function setOutlookCellWidth(cell, width){
   if(!cell) return;
   cell.setAttribute('width', width);
-  var style = String(cell.getAttribute('style') || '').replace(/width\s*:\s*[^;]+;?/gi, '').replace(/;;+/g, ';').trim();
+  var style = String(cell.getAttribute('style') || '')
+    .replace(/width\s*:\s*[^;]+;?/gi, '')
+    .replace(/min-width\s*:\s*[^;]+;?/gi, '')
+    .replace(/max-width\s*:\s*[^;]+;?/gi, '')
+    .replace(/;;+/g, ';')
+    .trim();
   if(style && style.charAt(style.length - 1) !== ';') style += ';';
-  cell.setAttribute('style', style + 'width:' + width + ';');
+  cell.setAttribute('style', style + 'width:' + width + ';max-width:100%;');
 }
+
+var OUTLOOK_FULL_WIDTH_TABLE_IDS = [
+  'tbl34', 'tbl35', 'tbl36', 'tbl37', 'tbl38', 'tbl39', 'tblAutomation', 'tblOtherIssues',
+  'tblEnhancements', 'tblSalesPortalEnhancements'
+];
 
 function ensureOutlookColgroup(tbl, widths){
   if(!tbl) return;
@@ -1631,80 +1641,109 @@ function wrapOutlookTrackerIdLinks(root){
   });
 }
 
+function lockOutlookInnerTablePercent(tbl, colPercents){
+  if(!tbl || !colPercents || !colPercents.length) return;
+  tbl.setAttribute('width', '100%');
+  tbl.style.width = '100%';
+  tbl.style.maxWidth = '100%';
+  tbl.style.minWidth = '';
+  tbl.style.tableLayout = 'fixed';
+  ensureOutlookColgroup(tbl, colPercents);
+  [].forEach.call(tbl.rows, function(tr){
+    colPercents.forEach(function(w, idx){
+      if(tr.cells[idx]) setOutlookCellWidth(tr.cells[idx], w);
+    });
+  });
+}
+
 function lockOutlookPageOneTableWidths(root){
   if(!root) return;
-  var totalW = 940;
-  var leftW = 466;
-  var gapW = 8;
-  var rightW = 466;
   var report = root.id === 'report' ? root : root.querySelector('#report');
   if(report){
-    report.setAttribute('width', String(totalW));
-    report.style.width = totalW + 'px';
-    report.style.maxWidth = totalW + 'px';
+    report.setAttribute('width', '100%');
+    report.style.width = '100%';
+    report.style.maxWidth = '940px';
+    report.style.minWidth = '';
   }
   var grid = root.querySelector('.report-two-col');
   if(grid){
-    grid.setAttribute('width', String(totalW));
-    grid.style.width = totalW + 'px';
-    grid.style.maxWidth = totalW + 'px';
+    grid.setAttribute('width', '100%');
+    grid.style.width = '100%';
+    grid.style.maxWidth = '100%';
+    grid.style.minWidth = '';
     grid.style.tableLayout = 'fixed';
-    ensureOutlookColgroup(grid, [leftW + 'px', gapW + 'px', rightW + 'px']);
+    ensureOutlookColgroup(grid, ['49.5%', '1%', '49.5%']);
     [].forEach.call(grid.rows, function(row){
       if(!row || row.cells.length < 3) return;
-      setOutlookCellWidth(row.cells[0], leftW + 'px');
-      setOutlookCellWidth(row.cells[1], gapW + 'px');
-      setOutlookCellWidth(row.cells[2], rightW + 'px');
+      setOutlookCellWidth(row.cells[0], '49.5%');
+      setOutlookCellWidth(row.cells[1], '1%');
+      setOutlookCellWidth(row.cells[2], '49.5%');
       row.cells[0].setAttribute('valign', 'top');
       row.cells[2].setAttribute('valign', 'top');
       row.cells[0].style.verticalAlign = 'top';
       row.cells[2].style.verticalAlign = 'top';
     });
   }
-  function lockInnerTable(tbl, tableWidth, widths){
-    if(!tbl) return;
-    tbl.setAttribute('width', String(tableWidth));
-    tbl.style.width = tableWidth + 'px';
-    tbl.style.maxWidth = tableWidth + 'px';
-    tbl.style.minWidth = tableWidth + 'px';
-    tbl.style.tableLayout = 'fixed';
-    ensureOutlookColgroup(tbl, widths.map(function(px){ return px + 'px'; }));
-    [].forEach.call(tbl.rows, function(tr){
-      widths.forEach(function(px, idx){
-        if(tr.cells[idx]) setOutlookCellWidth(tr.cells[idx], px + 'px');
-      });
-    });
-  }
-  var valueW = 70;
-  lockInnerTable(root.querySelector('#tblExecSummary'), leftW, [leftW - valueW, valueW]);
-  var countW = 52;
-  var catW = 150;
-  var idsW = Math.max(140, rightW - catW - countW);
-  var tracker = root.querySelector('#tbl33');
-  lockInnerTable(tracker, rightW, [catW, countW, idsW]);
+  lockOutlookInnerTablePercent(root.querySelector('#tblExecSummary'), ['75%', '25%']);
+  lockOutlookInnerTablePercent(root.querySelector('#tbl33'), ['32%', '12%', '56%']);
   wrapOutlookTrackerIdLinks(root);
   var scope = root.querySelector('#scopePanel, table.scope-panel');
   var blockers = root.querySelector('#blockersPanel, table.blockers-panel');
-  if(scope){
-    scope.setAttribute('width', String(leftW));
-    scope.style.width = leftW + 'px';
-    scope.style.maxWidth = leftW + 'px';
-    scope.style.minWidth = leftW + 'px';
-    scope.style.tableLayout = 'fixed';
-    [].forEach.call(scope.rows || [], function(tr){
-      [].forEach.call(tr.cells || [], function(td){ setOutlookCellWidth(td, leftW + 'px'); });
+  [scope, blockers].forEach(function(panel){
+    if(!panel) return;
+    panel.setAttribute('width', '100%');
+    panel.style.width = '100%';
+    panel.style.maxWidth = '100%';
+    panel.style.minWidth = '';
+    panel.style.tableLayout = 'fixed';
+    [].forEach.call(panel.rows || [], function(tr){
+      [].forEach.call(tr.cells || [], function(td){ setOutlookCellWidth(td, '100%'); });
     });
-  }
-  if(blockers){
-    blockers.setAttribute('width', String(rightW));
-    blockers.style.width = rightW + 'px';
-    blockers.style.maxWidth = rightW + 'px';
-    blockers.style.minWidth = rightW + 'px';
-    blockers.style.tableLayout = 'fixed';
-    [].forEach.call(blockers.rows || [], function(tr){
-      [].forEach.call(tr.cells || [], function(td){ setOutlookCellWidth(td, rightW + 'px'); });
+  });
+}
+
+function lockOutlookFullWidthTables(root){
+  if(!root) return;
+  OUTLOOK_FULL_WIDTH_TABLE_IDS.forEach(function(tableId){
+    var tbl = root.querySelector('#' + tableId);
+    if(!tbl) return;
+    tbl.setAttribute('width', '100%');
+    tbl.style.width = '100%';
+    tbl.style.maxWidth = '100%';
+    tbl.style.minWidth = '';
+    tbl.style.tableLayout = 'fixed';
+    tbl.querySelectorAll('td, th').forEach(function(cell){
+      cell.style.whiteSpace = 'normal';
+      cell.style.wordWrap = 'break-word';
+      cell.style.overflowWrap = 'break-word';
+      cell.style.wordBreak = 'break-word';
+      cell.style.verticalAlign = 'top';
     });
-  }
+  });
+  root.querySelectorAll('.report-banner, .report-footer').forEach(function(tbl){
+    tbl.setAttribute('width', '100%');
+    tbl.style.width = '100%';
+    tbl.style.maxWidth = '100%';
+    tbl.style.minWidth = '';
+  });
+}
+
+function stripOutlookRigidWidths(root){
+  if(!root) return;
+  root.querySelectorAll('[style]').forEach(function(el){
+    var style = el.getAttribute('style') || '';
+    style = style.replace(/min-width\s*:\s*[^;]+;?/gi, '');
+    if(el.tagName === 'TABLE'){
+      style = style.replace(/width\s*:\s*\d+px;?/gi, 'width:100%;');
+    }
+    el.setAttribute('style', style.replace(/;;+/g, ';').replace(/^;+|;+$/g, ''));
+  });
+  root.querySelectorAll('table[width]').forEach(function(tbl){
+    var w = tbl.getAttribute('width');
+    if(w && /^\d+$/.test(String(w)) && parseInt(w, 10) >= 400){
+      tbl.setAttribute('width', '100%');
+    }
+  });
 }
 
 function refreshLiveReportBeforeExport(){
@@ -1754,6 +1793,8 @@ function copyForOutlook(){
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
   lockOutlookPageOneTableWidths(clone);
+  lockOutlookFullWidthTables(clone);
+  stripOutlookRigidWidths(clone);
   bakeReproStepsForExport(clone, true);
   bakeDefectCellColorsForExport(clone);
   sanitizeOutlookTableCells(clone);
@@ -2122,16 +2163,22 @@ function getExportPrintStyles(){
 }
 
 function getOutlookExportStyles(){
+  var wideTableCss = OUTLOOK_FULL_WIDTH_TABLE_IDS.map(function(id){
+    return '#' + id + '{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}';
+  }).join('');
+  var wideTableCellCss = OUTLOOK_FULL_WIDTH_TABLE_IDS.map(function(id){
+    return '#' + id + ' td,' + '#' + id + ' th{white-space:normal!important;overflow-wrap:break-word!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}';
+  }).join('');
   return [
-    'html,body{margin:0!important;padding:0!important;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px!important;line-height:1.35!important;}',
+    'html,body{margin:0!important;padding:0!important;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px!important;line-height:1.35!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}',
     'p{margin:0!important;padding:0!important;}',
-    '#report{width:940px;max-width:940px;margin:0!important;padding:0!important;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
+    '#report{width:100%!important;max-width:940px!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff;font-size:12px!important;font-family:Arial,Helvetica,sans-serif!important;}',
     '#report,#report table,#report td,#report th,#report div,#report span,#report p,#report li{font-family:Arial,Helvetica,sans-serif!important;}',
-    'table{border-collapse:collapse;margin:0!important;}',
+    'table{border-collapse:collapse;margin:0!important;mso-table-lspace:0pt;mso-table-rspace:0pt;}',
     '.jira-link a{color:#1a5fb4!important;text-decoration:underline;font-weight:700;}',
     '.repro-steps-cell{white-space:normal!important;line-height:1.45!important;mso-line-height-rule:exactly;vertical-align:top!important;padding:8px 12px!important;}',
-    '.report-banner{margin:0!important;padding:0!important;}',
-    '.report-footer{margin:16px 0 0 0!important;padding:0!important;}',
+    '.report-banner{margin:0!important;padding:0!important;width:100%!important;max-width:100%!important;}',
+    '.report-footer{margin:16px 0 0 0!important;padding:0!important;width:100%!important;max-width:100%!important;}',
     '.report-banner td,.report-footer td{background-color:#16265f!important;}',
     '.report-banner .banner-title{color:#ffffff!important;}',
     '.report-banner .banner-subtitle{color:#dfe5f5!important;}',
@@ -2139,13 +2186,13 @@ function getOutlookExportStyles(){
     '.report-banner .banner-date-value{color:#ffffff!important;}',
     '.report-footer .footer-label{color:#dfe5f5!important;}',
     '.report-footer .footer-thanks{color:#ffffff!important;}',
-    '[data-export-panel="table"]{border-collapse:collapse!important;width:100%!important;table-layout:fixed!important;}',
+    '[data-export-panel="table"]{border-collapse:collapse!important;width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}',
     '[data-export-panel="table"] td{mso-line-height-rule:exactly;vertical-align:top!important;}',
     '#scopeTestedToday,#bugTrackerBlockers{mso-line-height-rule:exactly;vertical-align:top!important;}',
     '#scopeTestedToday *,#bugTrackerBlockers *{font-size:inherit;line-height:inherit;font-family:Arial,Helvetica,sans-serif;}',
-    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;width:100%!important;max-width:100%!important;min-width:100%!important;table-layout:fixed!important;}',
-    '.scope-panel[data-export-panel="table"]{border:1px solid #e7c894!important;background:#fdf3e3!important;width:100%!important;max-width:100%!important;}',
-    '.automation-module-panel[data-export-panel="table"]{border:1px solid #c7d2fe!important;background:#eef2ff!important;width:100%!important;max-width:100%!important;}',
+    '.blockers-panel[data-export-panel="table"]{border:2px solid #b42318!important;background:#fff5f5!important;width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}',
+    '.scope-panel[data-export-panel="table"]{border:1px solid #e7c894!important;background:#fdf3e3!important;width:100%!important;max-width:100%!important;min-width:0!important;}',
+    '.automation-module-panel[data-export-panel="table"]{border:1px solid #c7d2fe!important;background:#eef2ff!important;width:100%!important;max-width:100%!important;min-width:0!important;}',
     '#scopeTestedToday{background:#fdf3e3!important;color:#222!important;border-left:none!important;width:100%!important;max-width:100%!important;}',
     '#moduleCovered{background:#eef2ff!important;color:#222!important;border-left:none!important;width:100%!important;max-width:100%!important;}',
     '.scope-point{margin-bottom:6px!important;width:100%!important;max-width:100%!important;}',
@@ -2157,20 +2204,20 @@ function getOutlookExportStyles(){
     '.blocker-point:last-child{margin-bottom:0!important;}',
     '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
-    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:466px!important;max-width:466px!important;min-width:466px!important;table-layout:fixed!important;}',
-    '#tblExecSummary td:first-child{width:346px!important;}',
-    '#tblExecSummary td:nth-child(2){width:120px!important;}',
-    '#tbl33,#blockersPanel,table.blockers-panel{width:466px!important;max-width:466px!important;min-width:466px!important;table-layout:fixed!important;}',
-    '#tbl33 td:first-child{width:160px!important;}',
-    '#tbl33 td:nth-child(2){width:52px!important;}',
-    '#tbl33 td:nth-child(3){width:254px!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
-    '#tbl37{width:100%!important;max-width:100%!important;table-layout:fixed!important;}',
-    '#tbl37 td{white-space:normal!important;overflow-wrap:anywhere!important;word-wrap:break-word!important;word-break:break-word!important;vertical-align:top!important;}',
+    '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}',
+    '#tblExecSummary td:first-child{width:75%!important;}',
+    '#tblExecSummary td:nth-child(2){width:25%!important;}',
+    '#tbl33,#blockersPanel,table.blockers-panel{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}',
+    '#tbl33 td:first-child{width:32%!important;}',
+    '#tbl33 td:nth-child(2){width:12%!important;}',
+    '#tbl33 td:nth-child(3){width:56%!important;white-space:normal!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;}',
+    wideTableCss,
+    wideTableCellCss,
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
-    '.report-banner,.report-footer,.report-two-col{width:940px!important;max-width:940px!important;table-layout:fixed!important;}',
-    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:466px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:8px!important;}',
-    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:466px!important;}',
+    '.report-banner,.report-footer,.report-two-col{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;}',
+    '.report-two-col > tbody > tr > td:first-child,.report-two-col > tr > td:first-child{width:49.5%!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(2),.report-two-col > tr > td:nth-child(2){width:1%!important;}',
+    '.report-two-col > tbody > tr > td:nth-child(3),.report-two-col > tr > td:nth-child(3){width:49.5%!important;}',
     '.report-two-col td{vertical-align:top!important;}'
   ].join('');
 }
