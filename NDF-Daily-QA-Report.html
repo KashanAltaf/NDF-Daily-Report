@@ -195,11 +195,13 @@
     padding:9px 12px;
     text-transform:uppercase;
     border-bottom:2px solid #92400e;
+    flex:0 0 auto;
+    height:auto;
   }
   .scope-panel-inner {
     padding:8px 10px;
     font-size:12.5px;
-    flex:0 0 auto;
+    flex:1 1 auto;
     display:block;
     min-height:0;
     background:#fdf3e3;
@@ -270,6 +272,8 @@
     padding:9px 12px;
     text-transform:uppercase;
     border-bottom:2px solid #7f1d1d;
+    flex:0 0 auto;
+    height:auto;
   }
   .blockers-header-badge {
     display:inline-block;
@@ -289,7 +293,7 @@
     color:#7f1d1d;
     line-height:1.4;
     background:#fef2f2;
-    flex:0 0 auto;
+    flex:1 1 auto;
     min-height:0;
     box-sizing:border-box;
     width:100%;
@@ -6193,14 +6197,15 @@ function fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, block
   }
 
   var finalTarget = Math.max(scopePanel.offsetHeight, blockersPanel.offsetHeight);
-  scopePanel.style.height = finalTarget + 'px';
-  blockersPanel.style.height = finalTarget + 'px';
   scopePanel.setAttribute('data-export-height', finalTarget);
   blockersPanel.setAttribute('data-export-height', finalTarget);
   scopeEl.setAttribute('data-export-font-size', scopeEl.style.fontSize || '');
   blockersEl.setAttribute('data-export-font-size', blockersEl.style.fontSize || '');
   scopeEl.setAttribute('data-export-line-height', scopeEl.style.lineHeight || '');
   blockersEl.setAttribute('data-export-line-height', blockersEl.style.lineHeight || '');
+  /* Live report: keep panels content-sized; export height is stored above for Outlook/PDF only */
+  scopePanel.style.height = '';
+  blockersPanel.style.height = '';
 }
 
 function syncPageOnePanelLayout(){
