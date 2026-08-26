@@ -120,6 +120,45 @@
     word-break:break-word;
     vertical-align:top;
   }
+  /* Defect / enhancement log tables — fixed layout so 12pt text fits without clipping */
+  #tbl36, #tblEnhancements, #tblSalesPortalEnhancements {
+    width:100% !important;
+    max-width:100% !important;
+    table-layout:fixed !important;
+    box-sizing:border-box;
+  }
+  #tbl36 td, #tblEnhancements td, #tblSalesPortalEnhancements td {
+    white-space:normal !important;
+    overflow-wrap:break-word;
+    word-wrap:break-word;
+    word-break:break-word;
+    vertical-align:top !important;
+    line-height:1.35;
+  }
+  #tbl36 tr:first-child td, #tblEnhancements tr:first-child td, #tblSalesPortalEnhancements tr:first-child td {
+    vertical-align:top !important;
+    line-height:1.25;
+    padding:9px 7px !important;
+    white-space:normal !important;
+  }
+  #tbl36 tr:not(:first-child) td, #tblEnhancements tr:not(:first-child) td, #tblSalesPortalEnhancements tr:not(:first-child) td {
+    padding:7px 7px !important;
+  }
+  #tbl36 td:nth-child(1), #tblEnhancements td:nth-child(1), #tblSalesPortalEnhancements td:nth-child(1) { width:9%; }
+  #tbl36 td:nth-child(2), #tblEnhancements td:nth-child(2), #tblSalesPortalEnhancements td:nth-child(2) { width:5%; }
+  #tbl36 td:nth-child(3), #tblEnhancements td:nth-child(3), #tblSalesPortalEnhancements td:nth-child(3) { width:8%; }
+  #tbl36 td:nth-child(4), #tblEnhancements td:nth-child(4), #tblSalesPortalEnhancements td:nth-child(4) { width:6%; }
+  #tbl36 td:nth-child(5), #tblEnhancements td:nth-child(5), #tblSalesPortalEnhancements td:nth-child(5) { width:7%; }
+  #tbl36 td:nth-child(6), #tblEnhancements td:nth-child(6), #tblSalesPortalEnhancements td:nth-child(6) { width:14%; }
+  #tbl36 td:nth-child(7), #tblEnhancements td:nth-child(7), #tblSalesPortalEnhancements td:nth-child(7) { width:28%; }
+  #tbl36 td:nth-child(8), #tblEnhancements td:nth-child(8), #tblSalesPortalEnhancements td:nth-child(8) { width:8%; }
+  #tbl36 td:nth-child(9), #tblEnhancements td:nth-child(9), #tblSalesPortalEnhancements td:nth-child(9) { width:8%; }
+  #tbl36 td:nth-child(10), #tblEnhancements td:nth-child(10), #tblSalesPortalEnhancements td:nth-child(10) { width:7%; }
+  #tbl36 td.defect-priority-cell, #tbl36 td.defect-status-cell,
+  #tblEnhancements td.defect-priority-cell, #tblEnhancements td.defect-status-cell,
+  #tblSalesPortalEnhancements td.defect-priority-cell, #tblSalesPortalEnhancements td.defect-status-cell {
+    vertical-align:top !important;
+  }
   .report-two-col { width:100%; table-layout:fixed; }
   .report-two-col td { vertical-align:top; }
   .report-two-col > tbody > tr:first-child > td { vertical-align:top; }
