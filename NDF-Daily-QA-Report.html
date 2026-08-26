@@ -3338,6 +3338,7 @@ function isIssueFixedToday(issue){
   if(issue.verifiedOnUatExcluded) return false;
   if(issue.source === 'ado') return bucketAdoIssue(issue) === 'fixed' && isIssueDateToday(issue);
   if(issue.verifiedOnUatToday){
+    if(issue.fixedToday === true && issue.timestamp && isTodayDefectDateText(issue.timestamp)) return true;
     if(issue.verifiedCommentCreated){
       return isIssueDateToday({ created: issue.verifiedCommentCreated, updated: issue.verifiedCommentCreated });
     }
@@ -4078,6 +4079,25 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
   }
 }
 
+function removeIssueKeysFromOpenTrackerRow(keys){
+  var set = {};
+  (keys || []).forEach(function(key){
+    var norm = normalizeIssueKey(key);
+    if(norm) set[norm.toUpperCase()] = true;
+  });
+  if(!Object.keys(set).length) return;
+  var row = getTrackerRowByLabel('Open / Pending dev fix');
+  if(!row || !row.cells[2]) return;
+  var kept = parseJiraEntriesFromCell(row.cells[2]).filter(function(entry){
+    var k = normalizeIssueKey(entry && (entry.key || entry.text));
+    return !(k && set[k.toUpperCase()]);
+  });
+  if(kept.length) renderJiraLinksInCell(row.cells[2], kept);
+  else row.cells[2].innerHTML = '';
+  if(row.cells[1]) row.cells[1].textContent = kept.length ? String(kept.length) : '';
+  updateTotalActiveDefectsFromTracker();
+}
+
 function removeIssueKeysFromReport(keys){
   var set = {};
   (keys || []).forEach(function(key){
@@ -4133,10 +4153,15 @@ function removeIssueKeysFromReport(keys){
 function applyJiraPayload(payload){
   activeBugSyncSource = 'jira';
   setIssueIdColumnHeadings('jira');
+  var serverFixedToday = filterReportIssues(payload.fixedTodayIssues || [], 'jira');
+  var serverFixedTodayKeys = {};
+  serverFixedToday.forEach(function(issue){
+    if(issue && issue.key) serverFixedTodayKeys[issue.key] = true;
+  });
   var todayIssues = filterReportIssues(payload.todayIssues || [], 'jira');
   var trackerIssues = filterReportIssues(payload.trackerIssues || payload.activeIssues || [], 'jira');
   var defectLogIssues = filterReportIssues(payload.defectLogIssues || payload.issues || [], 'jira');
-  var fixedTodayIssues = filterReportIssues(payload.fixedTodayIssues || [], 'jira');
+  var fixedTodayIssues = serverFixedToday.slice();
   fixedTodayIssues.forEach(function(issue){
     issue.fixedToday = true;
     if(issue.verifiedOnUatToday && issue.verifiedCommentCreated){
@@ -4146,7 +4171,12 @@ function applyJiraPayload(payload){
     }
   });
   fixedTodayIssues = fixedTodayIssues.filter(isIssueFixedToday);
-  var openIssues = filterReportIssues(payload.openToDoIssues || payload.openIssues || [], 'jira');
+  Object.keys(serverFixedTodayKeys).forEach(function(key){
+    if(!fixedTodayIssues.some(function(issue){ return issue.key === key; })) delete serverFixedTodayKeys[key];
+  });
+  var openIssues = filterReportIssues(payload.openToDoIssues || payload.openIssues || [], 'jira').filter(function(issue){
+    return !serverFixedTodayKeys[issue.key];
+  });
   var regressionIssues = filterReportIssues(payload.regressionIssues || [], 'jira');
   regressionIssues.forEach(function(issue){ issue.regression = true; });
   var canceledTodayIssues = (payload.canceledTodayIssues || []).filter(function(issue){
@@ -4165,7 +4195,7 @@ function applyJiraPayload(payload){
   openIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   canceledTodayIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   regressionIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
-  var defectCandidates = mergeIssueArrays(defectLogIssues, fixedTodayIssues, openIssues, canceledTodayIssues, trackerIssues);
+  var defectCandidates = mergeIssueArrays(defectLogIssues, openIssues, canceledTodayIssues, trackerIssues, fixedTodayIssues);
   var defectMap = mergeIssuesWithPersistent(defectCandidates, 'jira', freshByKey);
   Object.keys(defectMap).forEach(function(key){
     if(!isReportExcludedJiraIssue(defectMap[key])) trackerMap[key] = defectMap[key];
@@ -4173,6 +4203,7 @@ function applyJiraPayload(payload){
   fixedTodayIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
   lastJiraIssueMap = trackerMap;
   applySyncDataToTracker(trackerMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
+  removeIssueKeysFromOpenTrackerRow(Object.keys(serverFixedTodayKeys));
   syncDefectLogFromIssueMap(defectMap, 'jira');
   removeIssueKeysFromReport(payload.verifiedExcludedKeys || []);
   purgeAndDedupeIssueSections();

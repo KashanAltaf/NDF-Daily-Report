@@ -244,6 +244,15 @@ function updatedTodayBugsJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
+/** Updated today with Verified on UAT in comments (JQL fallback when comment API is unavailable) */
+function verifiedOnUatTodayCommentJql(extra) {
+  var jql = BASE_JQL +
+    ' AND updated >= startOfDay()' +
+    ' AND comment ~ "\\"Verified on UAT\\""';
+  if (extra) jql += ' AND ' + extra;
+  return jql + ' ORDER BY updated DESC';
+}
+
 /**
  * UAT-Testing issues whose comments mention Verified on UAT (Jira text search).
  * Primary stay-out signal when per-issue comment fetch is flaky in production.
@@ -291,6 +300,7 @@ module.exports = {
   activeBugsJql,
   uatTestingBugsJql,
   updatedTodayBugsJql,
+  verifiedOnUatTodayCommentJql,
   verifiedOnUatCommentJql,
   browseUrl: function (key) {
     return JIRA_BASE_URL + '/browse/' + key;

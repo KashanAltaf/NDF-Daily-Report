@@ -343,8 +343,9 @@ function isVerifiedStayOutStatus(statusName) {
  * Today → report as Fixed; older date + UAT-Testing/Fixed status → exclude from report.
  * If comments cannot be read, JQL-matched keys stay excluded (fail closed).
  */
-async function annotateVerifiedOnUat(issues, jqlMatchedKeys) {
+async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKeys) {
   var jqlKeys = jqlMatchedKeys || {};
+  var todayJqlKeys = verifiedTodayJqlKeys || {};
   var seen = {};
   var list = [];
   (issues || []).forEach(function (issue) {
@@ -371,6 +372,16 @@ async function annotateVerifiedOnUat(issues, jqlMatchedKeys) {
       try {
         var comments = await fetchIssueComments(issue.key);
         if (!comments.length) {
+          if (todayJqlKeys[issue.key]) {
+            return {
+              kind: 'today',
+              issue: Object.assign({}, issue, {
+                verifiedOnUatToday: true,
+                fixedToday: true,
+                timestamp: jiraParse.formatIssueDate(issue.updated || issue.created)
+              })
+            };
+          }
           // No comments readable — keep JQL exclusion if present; otherwise skip
           return jqlKeys[issue.key] ? { kind: 'excluded', key: issue.key } : null;
         }
@@ -413,6 +424,13 @@ async function annotateVerifiedOnUat(issues, jqlMatchedKeys) {
   return { todayIssues: todayIssues, excludedKeys: excludedKeys };
 }
 
+function withoutFixedTodayKeys(issues, fixedTodayKeys) {
+  if (!fixedTodayKeys) return issues || [];
+  return (issues || []).filter(function (issue) {
+    return !issue || !fixedTodayKeys[issue.key];
+  });
+}
+
 function withoutVerifiedStayOut(issues, excludedKeys) {
   if (!excludedKeys) return issues || [];
   return (issues || []).filter(function (issue) {
@@ -452,21 +470,31 @@ async function fetchReportIssues() {
   var updatedTodayIssues = filterReportIssues(await jiraSearch(cfg.updatedTodayBugsJql()));
   var trackerIssues = filterReportIssues(await jiraSearch(activeJqlStr));
   var verifiedJqlIssues = [];
+  var verifiedTodayJqlIssues = [];
   try {
     verifiedJqlIssues = filterReportIssues(await jiraSearch(cfg.verifiedOnUatCommentJql()));
   } catch (e) {
     verifiedJqlIssues = [];
   }
+  try {
+    verifiedTodayJqlIssues = filterReportIssues(await jiraSearch(cfg.verifiedOnUatTodayCommentJql()));
+  } catch (e) {
+    verifiedTodayJqlIssues = [];
+  }
   var verifiedJqlKeys = {};
   verifiedJqlIssues.forEach(function (issue) {
     if (issue && issue.key) verifiedJqlKeys[issue.key] = true;
   });
-  // Scan UAT-Testing, updated-today, fixed-today, and JQL stay-out hits for Verified on UAT comments
+  var verifiedTodayJqlKeys = {};
+  verifiedTodayJqlIssues.forEach(function (issue) {
+    if (issue && issue.key) verifiedTodayJqlKeys[issue.key] = true;
+  });
+  // Scan UAT-Testing, updated-today, fixed-today, and JQL comment hits for Verified on UAT comments
   var verifiedScanCandidates = mergeIssuesByKey(
     uatTestingIssues,
-    mergeIssuesByKey(updatedTodayIssues, mergeIssuesByKey(fixedTodayIssues, verifiedJqlIssues))
+    mergeIssuesByKey(updatedTodayIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(verifiedJqlIssues, verifiedTodayJqlIssues)))
   );
-  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates, verifiedJqlKeys);
+  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates, verifiedJqlKeys, verifiedTodayJqlKeys);
   var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
   var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
   fixedTodayIssues = withoutVerifiedStayOut(mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues), verifiedExcludedKeys);
@@ -524,6 +552,8 @@ async function fetchReportIssues() {
   });
   var fixedTodayKeys = {};
   fixedTodayIssues.forEach(function (issue) { fixedTodayKeys[issue.key] = true; });
+  openToDoIssues = withoutFixedTodayKeys(openToDoIssues, fixedTodayKeys);
+  todayDefectIssues = withoutFixedTodayKeys(todayDefectIssues, fixedTodayKeys);
   var canceledTodayKeys = {};
   canceledTodayIssues.forEach(function (issue) { canceledTodayKeys[issue.key] = true; });
   // Historical Done must never enter the tracker/defect pipeline; only today's Done (fixedTodayKeys)
@@ -538,7 +568,7 @@ async function fetchReportIssues() {
     return !verifiedOnUatKeys[issue.key] && !(issue && verifiedExcludedKeys[issue.key]);
   });
   buckets.open = (buckets.open || []).filter(function (issue) {
-    return !verifiedOnUatKeys[issue.key];
+    return !verifiedOnUatKeys[issue.key] && !(issue && fixedTodayKeys[issue.key]);
   });
   trackerIssues.forEach(function (issue) {
     if (!issue || !verifiedOnUatKeys[issue.key]) return;
