@@ -289,18 +289,6 @@ function isCreatedTodayInReportTz(iso) {
   return calendarDateInTz(iso) === calendarDateInTz(new Date());
 }
 
-/** TEMP: scope panel uses yesterday until switched back to today */
-function isCreatedYesterdayInReportTz(iso) {
-  if (!iso) return false;
-  var todayStr = calendarDateInTz(new Date());
-  if (!todayStr) return false;
-  var parts = todayStr.split('-').map(Number);
-  var d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-  d.setUTCDate(d.getUTCDate() - 1);
-  var yesterdayStr = d.toISOString().slice(0, 10);
-  return calendarDateInTz(iso) === yesterdayStr;
-}
-
 function commentBodyPlainText(body) {
   if (!body) return '';
   if (typeof body === 'string') return body;
@@ -621,7 +609,7 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
-  // Scope tested today: Tasks/Sub-tasks assigned to Kashan Altaf with Kashan's Verified on UAT (TEMP: yesterday)
+  // Scope tested today: Tasks/Sub-tasks assigned to Kashan Altaf with Kashan's Verified on UAT today
   var scopeVerifiedTodayIssues = [];
   var scopeText = '';
   try {
@@ -630,7 +618,7 @@ async function fetchReportIssues() {
     scopeCandidates.forEach(function (issue) {
       if (issue && issue.key) scopeTodayKeys[issue.key] = true;
     });
-    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeTodayKeys, scopeTodayKeys, isCreatedYesterdayInReportTz);
+    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeTodayKeys, scopeTodayKeys);
     scopeVerifiedTodayIssues = (scopeAnnot.todayIssues || []).filter(function (issue) {
       if (!issue) return false;
       if (!/kashan\s+altaf/i.test(String(issue.assignee || ''))) return false;
