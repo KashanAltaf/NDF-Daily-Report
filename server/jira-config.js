@@ -267,13 +267,12 @@ function verifiedOnUatCommentJql(extra) {
 }
 
 /**
- * Scope tested today — Tasks/Sub-tasks assigned to Kashan Altaf, updated today,
- * with a Verified on Uat comment (author checked in annotateVerifiedOnUat). Reporter unrestricted.
+ * Scope tested today — Tasks/Sub-tasks updated today with a Verified on UAT comment
+ * (Kashan Altaf author checked in annotateVerifiedOnUat). Reporter/assignee unrestricted.
  */
 function scopeVerifiedTodayJql(extra) {
   var jql = projectJql() +
     ' AND issuetype in (Task, "Sub-task")' +
-    ' AND assignee = "Kashan Altaf"' +
     ' AND updated >= startOfDay()' +
     ' AND comment ~ "\\"Verified on UAT\\""';
   if (extra) jql += ' AND ' + extra;

@@ -609,19 +609,38 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
-  // Scope tested today: Tasks/Sub-tasks assigned to Kashan Altaf with Kashan's Verified on UAT today
+  // Scope tested today: Tasks/Sub-tasks with Kashan's Verified on UAT comment today
   var scopeVerifiedTodayIssues = [];
   var scopeText = '';
   try {
-    var scopeCandidates = await jiraSearch(cfg.scopeVerifiedTodayJql());
-    var scopeTodayKeys = {};
-    scopeCandidates.forEach(function (issue) {
-      if (issue && issue.key) scopeTodayKeys[issue.key] = true;
+    var scopeCommentHits = [];
+    try {
+      scopeCommentHits = await jiraSearch(cfg.scopeVerifiedTodayJql());
+    } catch (e1) {
+      scopeCommentHits = [];
+    }
+    // Also scan Kashan-assigned tasks updated today (comment JQL can miss some)
+    var scopeAssigneeHits = [];
+    try {
+      scopeAssigneeHits = await jiraSearch(
+        cfg.projectJql() +
+        ' AND issuetype in (Task, "Sub-task")' +
+        ' AND assignee = "Kashan Altaf"' +
+        ' AND updated >= startOfDay()' +
+        ' ORDER BY updated DESC'
+      );
+    } catch (e2) {
+      scopeAssigneeHits = [];
+    }
+    var scopeCandidates = mergeIssuesByKey(scopeCommentHits, scopeAssigneeHits);
+    var scopeCommentKeys = {};
+    scopeCommentHits.forEach(function (issue) {
+      if (issue && issue.key) scopeCommentKeys[issue.key] = true;
     });
-    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeTodayKeys, scopeTodayKeys);
+    // Only comment-JQL hits may use empty-comment fallback; assignee-only need a real match
+    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeCommentKeys, scopeCommentKeys);
     scopeVerifiedTodayIssues = (scopeAnnot.todayIssues || []).filter(function (issue) {
       if (!issue) return false;
-      if (!/kashan\s+altaf/i.test(String(issue.assignee || ''))) return false;
       var type = String(issue.issueType || '').trim().toLowerCase();
       return type === 'task' || type === 'sub-task' || type === 'subtask';
     });

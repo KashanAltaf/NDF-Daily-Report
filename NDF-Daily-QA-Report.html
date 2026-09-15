@@ -4486,7 +4486,11 @@ function applyScopeTitlesFromJira(payload){
   if(!titles.length && typeof payload.scopeText === 'string'){
     String(payload.scopeText).split(/\r?\n+/).forEach(addTitle);
   }
-  if(!titles.length) return 0;
+  // Always refresh scope on Jira sync so placeholders don't linger when there are 0 matches
+  if(!Object.prototype.hasOwnProperty.call(payload, 'scopeVerifiedTodayIssues') &&
+     typeof payload.scopeText !== 'string'){
+    return 0;
+  }
   ensureScopePanel();
   var scopeEl = document.getElementById('scopeTestedToday');
   if(!scopeEl) return 0;
@@ -4494,9 +4498,13 @@ function applyScopeTitlesFromJira(payload){
     fontSize: scopeEl.style.fontSize || scopeEl.getAttribute('data-export-font-size') || '',
     lineHeight: scopeEl.style.lineHeight || scopeEl.getAttribute('data-export-line-height') || ''
   };
-  scopeEl.innerHTML = titles.map(function(t){
-    return buildScopePointHtml(t, false, textStyle);
-  }).join('');
+  if(!titles.length){
+    scopeEl.innerHTML = buildScopePointHtml('', false, textStyle);
+  } else {
+    scopeEl.innerHTML = titles.map(function(t){
+      return buildScopePointHtml(t, false, textStyle);
+    }).join('');
+  }
   scopeEl.classList.remove('e');
   scopeEl.setAttribute('contenteditable', 'false');
   bindScopeTextFields(scopeEl);
