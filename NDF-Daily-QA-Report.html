@@ -4463,8 +4463,45 @@ function applyJiraPayload(payload){
   ));
   syncEnhancementsFromIssues(enhancementPool);
   syncSalesPortalEnhancementsFromIssues(enhancementPool);
+  applyScopeTitlesFromJira(payload);
   purgeAndDedupeIssueSections();
   scheduleAutoSave();
+}
+
+function applyScopeTitlesFromJira(payload){
+  if(!payload) return 0;
+  var titles = [];
+  var seen = {};
+  function addTitle(raw){
+    var t = String(raw || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    t = t.replace(/^\s*[\u2022\u2023\u2043\u2219\u00b7•\-\*]\s*/, '').trim();
+    if(!t || seen[t]) return;
+    seen[t] = true;
+    titles.push(t);
+  }
+  (payload.scopeVerifiedTodayIssues || []).forEach(function(issue){
+    if(!issue) return;
+    addTitle(issue.summary || issue.rawSummary || '');
+  });
+  if(!titles.length && typeof payload.scopeText === 'string'){
+    String(payload.scopeText).split(/\r?\n+/).forEach(addTitle);
+  }
+  if(!titles.length) return 0;
+  ensureScopePanel();
+  var scopeEl = document.getElementById('scopeTestedToday');
+  if(!scopeEl) return 0;
+  var textStyle = {
+    fontSize: scopeEl.style.fontSize || scopeEl.getAttribute('data-export-font-size') || '',
+    lineHeight: scopeEl.style.lineHeight || scopeEl.getAttribute('data-export-line-height') || ''
+  };
+  scopeEl.innerHTML = titles.map(function(t){
+    return buildScopePointHtml(t, false, textStyle);
+  }).join('');
+  scopeEl.classList.remove('e');
+  scopeEl.setAttribute('contenteditable', 'false');
+  bindScopeTextFields(scopeEl);
+  schedulePageOnePanelSync();
+  return titles.length;
 }
 
 function deploymentSetupHelp(){
@@ -4530,6 +4567,8 @@ function syncFromJira(){
         throw new Error(result.data.error || 'Jira sync failed');
       }
       applyJiraPayload(result.data);
+      var scopeCount = (result.data.scopeVerifiedTodayIssues && result.data.scopeVerifiedTodayIssues.length) ||
+        (typeof result.data.scopeText === 'string' && result.data.scopeText.replace(/\s/g, '').length ? result.data.scopeText.split(/\n+/).filter(Boolean).length : 0);
       setSaveStatus('ok', 'Jira sync complete');
       showToast('Synced ' + (result.data.todayTotal || 0) + ' bug(s) today; ' +
         (result.data.openTotal || 0) + ' open (To Do / Bug/Issue); ' +
@@ -4537,7 +4576,8 @@ function syncFromJira(){
         (result.data.canceledTodayTotal || 0) + ' canceled today; ' +
         (result.data.regressionTotal || 0) + ' regression(s); ' +
         (result.data.enhancementTotal || 0) + ' enhancement(s); ' +
-        (result.data.defectLogTotal || 0) + ' in defect log.');
+        (result.data.defectLogTotal || 0) + ' in defect log; ' +
+        scopeCount + ' scope item(s).');
     })
     .catch(function(err){
       setSaveStatus('err', 'Jira sync failed');

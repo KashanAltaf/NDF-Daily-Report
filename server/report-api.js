@@ -289,6 +289,18 @@ function isCreatedTodayInReportTz(iso) {
   return calendarDateInTz(iso) === calendarDateInTz(new Date());
 }
 
+/** TEMP: scope panel uses yesterday until switched back to today */
+function isCreatedYesterdayInReportTz(iso) {
+  if (!iso) return false;
+  var todayStr = calendarDateInTz(new Date());
+  if (!todayStr) return false;
+  var parts = todayStr.split('-').map(Number);
+  var d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  d.setUTCDate(d.getUTCDate() - 1);
+  var yesterdayStr = d.toISOString().slice(0, 10);
+  return calendarDateInTz(iso) === yesterdayStr;
+}
+
 function commentBodyPlainText(body) {
   if (!body) return '';
   if (typeof body === 'string') return body;
@@ -343,9 +355,10 @@ function isVerifiedStayOutStatus(statusName) {
  * Today → report as Fixed; older date + UAT-Testing/Fixed status → exclude from report.
  * If comments cannot be read, JQL-matched keys stay excluded (fail closed).
  */
-async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKeys) {
+async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKeys, isMatchDayFn) {
   var jqlKeys = jqlMatchedKeys || {};
   var todayJqlKeys = verifiedTodayJqlKeys || {};
+  var isMatchDay = typeof isMatchDayFn === 'function' ? isMatchDayFn : isCreatedTodayInReportTz;
   var seen = {};
   var list = [];
   (issues || []).forEach(function (issue) {
@@ -388,7 +401,7 @@ async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKey
         for (var c = 0; c < comments.length; c++) {
           if (!isVerifiedOnUatCommentMatch(comments[c])) continue;
           var created = comments[c].created || '';
-          if (isCreatedTodayInReportTz(created)) {
+          if (isMatchDay(created)) {
             return {
               kind: 'today',
               issue: Object.assign({}, issue, {
@@ -608,6 +621,36 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
+  // Scope tested today: Tasks/Sub-tasks assigned to Kashan Altaf with Kashan's Verified on UAT (TEMP: yesterday)
+  var scopeVerifiedTodayIssues = [];
+  var scopeText = '';
+  try {
+    var scopeCandidates = await jiraSearch(cfg.scopeVerifiedTodayJql());
+    var scopeTodayKeys = {};
+    scopeCandidates.forEach(function (issue) {
+      if (issue && issue.key) scopeTodayKeys[issue.key] = true;
+    });
+    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeTodayKeys, scopeTodayKeys, isCreatedYesterdayInReportTz);
+    scopeVerifiedTodayIssues = (scopeAnnot.todayIssues || []).filter(function (issue) {
+      if (!issue) return false;
+      if (!/kashan\s+altaf/i.test(String(issue.assignee || ''))) return false;
+      var type = String(issue.issueType || '').trim().toLowerCase();
+      return type === 'task' || type === 'sub-task' || type === 'subtask';
+    });
+    var scopeTitles = [];
+    var seenTitles = {};
+    scopeVerifiedTodayIssues.forEach(function (issue) {
+      var title = String(issue.summary || issue.rawSummary || '').replace(/\s+/g, ' ').trim();
+      if (!title || seenTitles[title]) return;
+      seenTitles[title] = true;
+      scopeTitles.push(title);
+    });
+    scopeText = scopeTitles.map(function (t) { return '\u2022 ' + t; }).join('\n');
+  } catch (e) {
+    scopeVerifiedTodayIssues = [];
+    scopeText = '';
+  }
+
   return {
     fetchedAt: new Date().toISOString(),
     jql: todayJqlStr,
@@ -644,6 +687,8 @@ async function fetchReportIssues() {
     activeIssues: trackerIssues,
     buckets: buckets,
     verifiedExcludedKeys: Object.keys(verifiedExcludedKeys || {}),
+    scopeVerifiedTodayIssues: scopeVerifiedTodayIssues,
+    scopeText: scopeText,
     statusMap: cfg.STATUS,
     closedStatuses: cfg.EXCLUDED_STATUSES
   };

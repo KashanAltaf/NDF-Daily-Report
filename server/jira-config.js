@@ -266,6 +266,21 @@ function verifiedOnUatCommentJql(extra) {
   return jql + ' ORDER BY updated DESC';
 }
 
+/**
+ * Scope tested today — Tasks/Sub-tasks assigned to Kashan Altaf, updated yesterday,
+ * with a Verified on Uat comment (author checked in annotateVerifiedOnUat). Reporter unrestricted.
+ * TEMP: using yesterday (startOfDay(-1)) instead of today — switch back to startOfDay() later.
+ */
+function scopeVerifiedTodayJql(extra) {
+  var jql = projectJql() +
+    ' AND issuetype in (Task, "Sub-task")' +
+    ' AND assignee = "Kashan Altaf"' +
+    ' AND updated >= startOfDay(-1) AND updated < startOfDay()' +
+    ' AND comment ~ "\\"Verified on UAT\\""';
+  if (extra) jql += ' AND ' + extra;
+  return jql + ' ORDER BY updated DESC';
+}
+
 module.exports = {
   JIRA_BASE_URL,
   JIRA_EMAIL,
@@ -302,6 +317,7 @@ module.exports = {
   updatedTodayBugsJql,
   verifiedOnUatTodayCommentJql,
   verifiedOnUatCommentJql,
+  scopeVerifiedTodayJql,
   browseUrl: function (key) {
     return JIRA_BASE_URL + '/browse/' + key;
   }
