@@ -267,12 +267,13 @@ function verifiedOnUatCommentJql(extra) {
 }
 
 /**
- * Scope tested today — Tasks/Sub-tasks updated today with a Verified on UAT comment
+ * Scope tested today — Tasks/Sub-tasks/Bugs updated today with a Verified on UAT comment
  * (Kashan Altaf author checked in annotateVerifiedOnUat). Reporter/assignee unrestricted.
+ * POR work is often Bug; PB often Task/Sub-task.
  */
 function scopeVerifiedTodayJql(extra) {
   var jql = projectJql() +
-    ' AND issuetype in (Task, "Sub-task")' +
+    ' AND issuetype in (Bug, Task, "Sub-task")' +
     ' AND updated >= startOfDay()' +
     ' AND comment ~ "\\"Verified on UAT\\""';
   if (extra) jql += ' AND ' + extra;

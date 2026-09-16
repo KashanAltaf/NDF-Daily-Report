@@ -609,7 +609,7 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
-  // Scope tested today: Tasks/Sub-tasks with Kashan's Verified on UAT comment today
+  // Scope tested today: Bugs/Tasks/Sub-tasks with Kashan's Verified on UAT comment today (PB + POR)
   var scopeVerifiedTodayIssues = [];
   var scopeText = '';
   try {
@@ -619,12 +619,12 @@ async function fetchReportIssues() {
     } catch (e1) {
       scopeCommentHits = [];
     }
-    // Also scan Kashan-assigned tasks updated today (comment JQL can miss some)
+    // Also scan Kashan-assigned items updated today (comment JQL can miss some)
     var scopeAssigneeHits = [];
     try {
       scopeAssigneeHits = await jiraSearch(
         cfg.projectJql() +
-        ' AND issuetype in (Task, "Sub-task")' +
+        ' AND issuetype in (Bug, Task, "Sub-task")' +
         ' AND assignee = "Kashan Altaf"' +
         ' AND updated >= startOfDay()' +
         ' ORDER BY updated DESC'
@@ -642,7 +642,7 @@ async function fetchReportIssues() {
     scopeVerifiedTodayIssues = (scopeAnnot.todayIssues || []).filter(function (issue) {
       if (!issue) return false;
       var type = String(issue.issueType || '').trim().toLowerCase();
-      return type === 'task' || type === 'sub-task' || type === 'subtask';
+      return type === 'bug' || type === 'task' || type === 'sub-task' || type === 'subtask';
     });
     var scopeTitles = [];
     var seenTitles = {};
