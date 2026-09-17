@@ -768,6 +768,7 @@ async function importPlaywrightReport(payload) {
 
 module.exports = {
   fetchReportIssues: fetchReportIssues,
+  fetchScopeVerifiedToday: collectScopeVerifiedTodayIssues,
   getJiraHealth: getJiraHealth,
   getAdoHealth: getAdoHealth,
   importPlaywrightReport: importPlaywrightReport,

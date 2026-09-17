@@ -4486,41 +4486,66 @@ function collectScopeTitlesFromPayload(payload){
     if(!issue || issue.verifiedOnUatToday === false) return;
     addTitle(issue.summary || issue.rawSummary || '');
   });
-  // Fallback when array is empty/missing but server still sent plain text
   if(!titles.length && typeof payload.scopeText === 'string' && payload.scopeText.trim()){
     payload.scopeText.split(/\n+/).forEach(function(line){ addTitle(line); });
   }
   return titles;
 }
 
+function getLiveScopeElements(){
+  var list = [];
+  var seen = {};
+  function add(el){
+    if(!el || seen[el]) return;
+    seen[el] = true;
+    list.push(el);
+  }
+  add(document.querySelector('#report #scopePanel #scopeTestedToday'));
+  add(document.querySelector('#report #scopeTestedToday'));
+  add(document.getElementById('scopeTestedToday'));
+  return list;
+}
+
 function writeScopeTitlesToPanel(titles){
   titles = Array.isArray(titles) ? titles.filter(Boolean) : [];
+  // Never wipe a filled panel with an empty sync result
+  if(!titles.length){
+    return restoreScopeTitlesIfBlank();
+  }
+
   if(!document.querySelector('#report #scopeTestedToday') && !document.getElementById('scopeTestedToday')){
     ensureScopePanel();
   }
-  var scopeEl = document.querySelector('#report #scopeTestedToday') || document.getElementById('scopeTestedToday');
-  if(!scopeEl){
+  var targets = getLiveScopeElements();
+  if(!targets.length){
     ensureScopePanel();
-    scopeEl = document.querySelector('#report #scopeTestedToday') || document.getElementById('scopeTestedToday');
+    targets = getLiveScopeElements();
   }
-  if(!scopeEl) return 0;
+  if(!targets.length) return 0;
 
-  var textStyle = {
-    fontSize: scopeEl.style.fontSize || scopeEl.getAttribute('data-export-font-size') || '',
-    lineHeight: scopeEl.style.lineHeight || scopeEl.getAttribute('data-export-line-height') || ''
-  };
+  lastScopeTitlesFromJira = titles.slice();
+  var html = titles.map(function(t){
+    return buildScopePointHtml(t, false, {});
+  }).join('');
 
-  if(titles.length){
-    scopeEl.innerHTML = titles.map(function(t){
-      return buildScopePointHtml(t, false, textStyle);
-    }).join('');
-    lastScopeTitlesFromJira = titles.slice();
-  } else {
-    scopeEl.innerHTML = buildScopePointHtml('', false, textStyle);
-  }
-  scopeEl.classList.remove('e');
-  scopeEl.setAttribute('contenteditable', 'false');
-  bindScopeTextFields(scopeEl);
+  targets.forEach(function(scopeEl){
+    scopeEl.innerHTML = html;
+    scopeEl.classList.remove('e');
+    scopeEl.setAttribute('contenteditable', 'false');
+    // Guarantee visible text even if structure CSS fails
+    var texts = scopeEl.querySelectorAll('.scope-text');
+    if(texts.length !== titles.length){
+      scopeEl.innerHTML = titles.map(function(t){
+        return '<div class="scope-point"><span class="scope-bullet" contenteditable="false">&#8226;</span>' +
+          '<div class="scope-text e" contenteditable="true">' + escapeHtmlText(t) + '</div></div>';
+      }).join('');
+      texts = scopeEl.querySelectorAll('.scope-text');
+    }
+    titles.forEach(function(t, i){
+      if(texts[i] && !(texts[i].textContent || '').trim()) texts[i].textContent = t;
+    });
+    bindScopeTextFields(scopeEl);
+  });
   lockReportStructure();
   schedulePageOnePanelSync();
   return titles.length;
@@ -4538,21 +4563,23 @@ function restoreScopeTitlesIfBlank(){
 
 function applyScopeTitlesFromJira(payload){
   if(!payload) return 0;
-  var hasScopeKey = Object.prototype.hasOwnProperty.call(payload, 'scopeVerifiedTodayIssues') ||
-    Object.prototype.hasOwnProperty.call(payload, 'scopeText');
-  if(!hasScopeKey) return 0;
   var titles = collectScopeTitlesFromPayload(payload);
+  if(!titles.length) return restoreScopeTitlesIfBlank();
   var count = writeScopeTitlesToPanel(titles);
-  // Re-write after panel layout/repair passes that can recreate the node empty
-  setTimeout(function(){
-    if(titles.length) writeScopeTitlesToPanel(titles);
-    else restoreScopeTitlesIfBlank();
-  }, 0);
-  setTimeout(function(){
-    if(titles.length) writeScopeTitlesToPanel(titles);
-    else restoreScopeTitlesIfBlank();
-  }, 250);
+  setTimeout(function(){ writeScopeTitlesToPanel(titles); }, 0);
+  setTimeout(function(){ writeScopeTitlesToPanel(titles); }, 300);
+  setTimeout(function(){ writeScopeTitlesToPanel(titles); }, 800);
   return count;
+}
+
+function fetchScopeTodayPayload(){
+  var base = API_BASE || '';
+  return fetchApiJson(base + '/api/jira/scope-today').then(function(result){
+    if(!result.ok || (result.data && result.data.error)){
+      throw new Error((result.data && result.data.error) || 'Scope sync failed');
+    }
+    return result.data || {};
+  });
 }
 
 function deploymentSetupHelp(){
@@ -4612,15 +4639,39 @@ function fetchApiJson(url, options){
 function syncFromJira(){
   var base = API_BASE || '';
   setSaveStatus('saving', 'Syncing from Jira\u2026');
+  // Fast scope fill in parallel — does not wait for the full issues payload
+  var scopePromise = fetchScopeTodayPayload().then(function(scopeData){
+    var n = applyScopeTitlesFromJira(scopeData) || (scopeData.scopeVerifiedTodayIssues || []).length || 0;
+    return { data: scopeData, count: n };
+  }).catch(function(){
+    return { data: null, count: 0 };
+  });
+
   fetchApiJson(base + '/api/jira/issues')
     .then(function(result){
       if(!result.ok || result.data.error){
         throw new Error(result.data.error || 'Jira sync failed');
       }
-      applyJiraPayload(result.data);
-      var scopeCount = (result.data.scopeVerifiedTodayIssues || []).length;
-      // Re-apply after payload side-effects so Scope cannot stay empty
-      scopeCount = applyScopeTitlesFromJira(result.data) || scopeCount;
+      return scopePromise.then(function(scopeResult){
+        applyJiraPayload(result.data);
+        var scopeCount = applyScopeTitlesFromJira(result.data) || 0;
+        if(scopeResult && scopeResult.data){
+          scopeCount = applyScopeTitlesFromJira(scopeResult.data) || scopeCount || scopeResult.count || 0;
+        }
+        if(!scopeCount){
+          return fetchScopeTodayPayload().then(function(scopeData){
+            scopeCount = applyScopeTitlesFromJira(scopeData) || (scopeData.total || 0);
+            return { result: result, scopeCount: scopeCount };
+          }).catch(function(){
+            return { result: result, scopeCount: scopeCount };
+          });
+        }
+        return { result: result, scopeCount: scopeCount };
+      });
+    })
+    .then(function(done){
+      var result = done.result;
+      var scopeCount = done.scopeCount || 0;
       setSaveStatus('ok', 'Jira sync complete');
       showToast('Synced ' + (result.data.todayTotal || 0) + ' bug(s) today; ' +
         (result.data.openTotal || 0) + ' open (To Do / Bug/Issue); ' +
@@ -4630,8 +4681,17 @@ function syncFromJira(){
         (result.data.enhancementTotal || 0) + ' enhancement(s); ' +
         (result.data.defectLogTotal || 0) + ' in defect log; ' +
         scopeCount + ' scope item(s).');
+      if(!scopeCount){
+        showToast('Scope tested today is empty — no Kashan "Verified on UAT" comments dated today.');
+      }
     })
     .catch(function(err){
+      // Even if full sync fails, keep any scope titles we already filled
+      scopePromise.then(function(scopeResult){
+        if(scopeResult && scopeResult.count){
+          applyScopeTitlesFromJira(scopeResult.data);
+        }
+      });
       setSaveStatus('err', 'Jira sync failed');
       alert('Could not sync from Jira:\n\n' + (err.message || err) + deploymentSetupHelp());
     });

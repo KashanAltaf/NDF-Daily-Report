@@ -110,6 +110,30 @@ var server = http.createServer(async function (req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/jira/scope-today') {
+    if (!auth.requireAuth(req, res, httpUtil)) return;
+    try {
+      var scopeIssues = await api.fetchScopeVerifiedToday();
+      var scopeTitles = [];
+      var scopeSeen = {};
+      (scopeIssues || []).forEach(function (issue) {
+        var title = String((issue && (issue.summary || issue.rawSummary)) || '').replace(/\s+/g, ' ').trim();
+        if (!title || scopeSeen[title]) return;
+        scopeSeen[title] = true;
+        scopeTitles.push(title);
+      });
+      httpUtil.sendJson(res, 200, {
+        ok: true,
+        scopeVerifiedTodayIssues: scopeIssues || [],
+        scopeText: scopeTitles.map(function (t) { return '\u2022 ' + t; }).join('\n'),
+        total: scopeTitles.length
+      });
+    } catch (e) {
+      httpUtil.sendJson(res, e.code === 'CONFIG' ? 503 : 502, { ok: false, error: e.message || String(e) });
+    }
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/ado/bugs') {
     if (!auth.requireAuth(req, res, httpUtil)) return;
     try {
