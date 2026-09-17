@@ -4463,13 +4463,15 @@ function applyJiraPayload(payload){
   ));
   syncEnhancementsFromIssues(enhancementPool);
   syncSalesPortalEnhancementsFromIssues(enhancementPool);
-  applyScopeTitlesFromJira(payload);
   purgeAndDedupeIssueSections();
+  // Scope last so panel repair / purge cannot wipe titles
+  applyScopeTitlesFromJira(payload);
   scheduleAutoSave();
 }
 
-function applyScopeTitlesFromJira(payload){
-  if(!payload || !Object.prototype.hasOwnProperty.call(payload, 'scopeVerifiedTodayIssues')) return 0;
+var lastScopeTitlesFromJira = [];
+
+function collectScopeTitlesFromPayload(payload){
   var titles = [];
   var seen = {};
   function addTitle(raw){
@@ -4479,30 +4481,78 @@ function applyScopeTitlesFromJira(payload){
     seen[t] = true;
     titles.push(t);
   }
-  // Only titles from issues that were strictly verified today by Kashan (server-filtered)
+  if(!payload) return titles;
   (payload.scopeVerifiedTodayIssues || []).forEach(function(issue){
     if(!issue || issue.verifiedOnUatToday === false) return;
     addTitle(issue.summary || issue.rawSummary || '');
   });
-  ensureScopePanel();
-  var scopeEl = document.getElementById('scopeTestedToday');
+  // Fallback when array is empty/missing but server still sent plain text
+  if(!titles.length && typeof payload.scopeText === 'string' && payload.scopeText.trim()){
+    payload.scopeText.split(/\n+/).forEach(function(line){ addTitle(line); });
+  }
+  return titles;
+}
+
+function writeScopeTitlesToPanel(titles){
+  titles = Array.isArray(titles) ? titles.filter(Boolean) : [];
+  if(!document.querySelector('#report #scopeTestedToday') && !document.getElementById('scopeTestedToday')){
+    ensureScopePanel();
+  }
+  var scopeEl = document.querySelector('#report #scopeTestedToday') || document.getElementById('scopeTestedToday');
+  if(!scopeEl){
+    ensureScopePanel();
+    scopeEl = document.querySelector('#report #scopeTestedToday') || document.getElementById('scopeTestedToday');
+  }
   if(!scopeEl) return 0;
+
   var textStyle = {
     fontSize: scopeEl.style.fontSize || scopeEl.getAttribute('data-export-font-size') || '',
     lineHeight: scopeEl.style.lineHeight || scopeEl.getAttribute('data-export-line-height') || ''
   };
-  if(!titles.length){
-    scopeEl.innerHTML = buildScopePointHtml('', false, textStyle);
-  } else {
+
+  if(titles.length){
     scopeEl.innerHTML = titles.map(function(t){
       return buildScopePointHtml(t, false, textStyle);
     }).join('');
+    lastScopeTitlesFromJira = titles.slice();
+  } else {
+    scopeEl.innerHTML = buildScopePointHtml('', false, textStyle);
   }
   scopeEl.classList.remove('e');
   scopeEl.setAttribute('contenteditable', 'false');
   bindScopeTextFields(scopeEl);
+  lockReportStructure();
   schedulePageOnePanelSync();
   return titles.length;
+}
+
+function restoreScopeTitlesIfBlank(){
+  if(!lastScopeTitlesFromJira.length) return 0;
+  var scopeEl = document.querySelector('#report #scopeTestedToday') || document.getElementById('scopeTestedToday');
+  if(!scopeEl) return 0;
+  var text = (scopeEl.innerText || scopeEl.textContent || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  text = text.replace(/^[\u2022\u2023\u2043\u2219\u00b7•\-\*\s]+/, '').trim();
+  if(text && text.indexOf('[Module / Feature') === -1 && text.indexOf('[Add all]') === -1) return 0;
+  return writeScopeTitlesToPanel(lastScopeTitlesFromJira);
+}
+
+function applyScopeTitlesFromJira(payload){
+  if(!payload) return 0;
+  var hasScopeKey = Object.prototype.hasOwnProperty.call(payload, 'scopeVerifiedTodayIssues') ||
+    Object.prototype.hasOwnProperty.call(payload, 'scopeText');
+  if(!hasScopeKey) return 0;
+  var titles = collectScopeTitlesFromPayload(payload);
+  var count = writeScopeTitlesToPanel(titles);
+  // Re-write after panel layout/repair passes that can recreate the node empty
+  setTimeout(function(){
+    if(titles.length) writeScopeTitlesToPanel(titles);
+    else restoreScopeTitlesIfBlank();
+  }, 0);
+  setTimeout(function(){
+    if(titles.length) writeScopeTitlesToPanel(titles);
+    else restoreScopeTitlesIfBlank();
+  }, 250);
+  return count;
 }
 
 function deploymentSetupHelp(){
@@ -4568,8 +4618,9 @@ function syncFromJira(){
         throw new Error(result.data.error || 'Jira sync failed');
       }
       applyJiraPayload(result.data);
-      var scopeCount = (result.data.scopeVerifiedTodayIssues && result.data.scopeVerifiedTodayIssues.length) ||
-        (typeof result.data.scopeText === 'string' && result.data.scopeText.replace(/\s/g, '').length ? result.data.scopeText.split(/\n+/).filter(Boolean).length : 0);
+      var scopeCount = (result.data.scopeVerifiedTodayIssues || []).length;
+      // Re-apply after payload side-effects so Scope cannot stay empty
+      scopeCount = applyScopeTitlesFromJira(result.data) || scopeCount;
       setSaveStatus('ok', 'Jira sync complete');
       showToast('Synced ' + (result.data.todayTotal || 0) + ' bug(s) today; ' +
         (result.data.openTotal || 0) + ' open (To Do / Bug/Issue); ' +
@@ -6641,6 +6692,7 @@ function ensureScopePanel(){
   }
   stripLegacyPanelHeading(scopeEl);
   normalizeScopeStructure();
+  restoreScopeTitlesIfBlank();
   ensureScopePointActions();
 
   var leftHost = tblExec.closest('.report-section') || tblExec.parentElement;

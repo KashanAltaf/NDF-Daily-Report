@@ -511,6 +511,9 @@ function bucketIssues(issues) {
 
 async function fetchReportIssues() {
   prUrlCache = {};
+  // Start scope scan immediately in parallel so Vercel/timeouts don't skip it at the end
+  var scopePromise = collectScopeVerifiedTodayIssues().catch(function () { return []; });
+
   var todayJqlStr = cfg.todayJql();
   var openJqlStr = cfg.openBugsJql();
   var todayDefectJqlStr = cfg.todayDefectLogJql();
@@ -668,11 +671,15 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
-  // Scope tested today: only Bug/Task/Sub-task with Kashan's "Verified on UAT" comment dated today
+  // Scope tested today: Kashan's "Verified on UAT" comment dated today (any issue type)
   var scopeVerifiedTodayIssues = [];
   var scopeText = '';
   try {
-    scopeVerifiedTodayIssues = await collectScopeVerifiedTodayIssues();
+    scopeVerifiedTodayIssues = await scopePromise;
+    if (!scopeVerifiedTodayIssues.length) {
+      // Fallback if the parallel scan finished empty (race/auth blip)
+      scopeVerifiedTodayIssues = await collectScopeVerifiedTodayIssues();
+    }
     var scopeTitles = [];
     var seenTitles = {};
     scopeVerifiedTodayIssues.forEach(function (issue) {
