@@ -289,6 +289,65 @@ function isCreatedTodayInReportTz(iso) {
   return calendarDateInTz(iso) === calendarDateInTz(new Date());
 }
 
+/**
+ * Scope tested today — strict: must have Kashan Altaf "Verified on UAT" comment created today.
+ * No issue-type filter (Story/Bug/Task/Sub-task all qualify). No empty-comment / JQL fallback.
+ */
+async function collectScopeVerifiedTodayIssues() {
+  var candidates = [];
+  try {
+    candidates = await jiraSearch(cfg.scopeVerifiedTodayJql());
+  } catch (e) {
+    candidates = [];
+  }
+  // Also catch issues updated today even if comment text search is flaky
+  try {
+    var updatedToday = await jiraSearch(
+      cfg.projectJql() +
+      ' AND updated >= startOfDay()' +
+      ' AND comment ~ "\\"Verified on UAT\\""' +
+      ' ORDER BY updated DESC'
+    );
+    candidates = mergeIssuesByKey(candidates, updatedToday);
+  } catch (e2) {}
+
+  var matched = [];
+  var seen = {};
+  var concurrency = 6;
+  for (var i = 0; i < candidates.length; i += concurrency) {
+    var batch = candidates.slice(i, i + concurrency);
+    var results = await Promise.all(batch.map(async function (issue) {
+      if (!issue || !issue.key) return null;
+      try {
+        var comments = await fetchIssueComments(issue.key);
+        if (!comments.length) return null;
+        for (var c = 0; c < comments.length; c++) {
+          if (!isVerifiedOnUatCommentMatch(comments[c])) continue;
+          var created = comments[c].created || '';
+          if (!isCreatedTodayInReportTz(created)) continue;
+          return Object.assign({}, issue, {
+            verifiedOnUatToday: true,
+            verifiedCommentCreated: created,
+            timestamp: jiraParse.formatIssueDate(created || issue.updated || issue.created)
+          });
+        }
+      } catch (e) {
+        return null;
+      }
+      return null;
+    }));
+    results.forEach(function (issue) {
+      if (!issue || !issue.key || seen[issue.key]) return;
+      seen[issue.key] = true;
+      matched.push(issue);
+    });
+  }
+  matched.sort(function (a, b) {
+    return String(a.key || '').localeCompare(String(b.key || ''), undefined, { numeric: true });
+  });
+  return matched;
+}
+
 function commentBodyPlainText(body) {
   if (!body) return '';
   if (typeof body === 'string') return body;
@@ -609,41 +668,11 @@ async function fetchReportIssues() {
     await enrichIssuesWithPrUrls(defectLogIssues);
   } catch (e) {}
 
-  // Scope tested today: Bugs/Tasks/Sub-tasks with Kashan's Verified on UAT comment today (PB + POR)
+  // Scope tested today: only Bug/Task/Sub-task with Kashan's "Verified on UAT" comment dated today
   var scopeVerifiedTodayIssues = [];
   var scopeText = '';
   try {
-    var scopeCommentHits = [];
-    try {
-      scopeCommentHits = await jiraSearch(cfg.scopeVerifiedTodayJql());
-    } catch (e1) {
-      scopeCommentHits = [];
-    }
-    // Also scan Kashan-assigned items updated today (comment JQL can miss some)
-    var scopeAssigneeHits = [];
-    try {
-      scopeAssigneeHits = await jiraSearch(
-        cfg.projectJql() +
-        ' AND issuetype in (Bug, Task, "Sub-task")' +
-        ' AND assignee = "Kashan Altaf"' +
-        ' AND updated >= startOfDay()' +
-        ' ORDER BY updated DESC'
-      );
-    } catch (e2) {
-      scopeAssigneeHits = [];
-    }
-    var scopeCandidates = mergeIssuesByKey(scopeCommentHits, scopeAssigneeHits);
-    var scopeCommentKeys = {};
-    scopeCommentHits.forEach(function (issue) {
-      if (issue && issue.key) scopeCommentKeys[issue.key] = true;
-    });
-    // Only comment-JQL hits may use empty-comment fallback; assignee-only need a real match
-    var scopeAnnot = await annotateVerifiedOnUat(scopeCandidates, scopeCommentKeys, scopeCommentKeys);
-    scopeVerifiedTodayIssues = (scopeAnnot.todayIssues || []).filter(function (issue) {
-      if (!issue) return false;
-      var type = String(issue.issueType || '').trim().toLowerCase();
-      return type === 'bug' || type === 'task' || type === 'sub-task' || type === 'subtask';
-    });
+    scopeVerifiedTodayIssues = await collectScopeVerifiedTodayIssues();
     var scopeTitles = [];
     var seenTitles = {};
     scopeVerifiedTodayIssues.forEach(function (issue) {
