@@ -396,16 +396,10 @@ function isVerifiedOnUatCommentMatch(comment) {
   return commentHasVerifiedOnUatText(comment);
 }
 
-/** Once verified, stay out only after leave-retest (Create-PRD-PR / Done). UAT-Testing still shows in defect log. */
-function isVerifiedStayOutStatus(statusName) {
-  var s = normalizeStatusName(statusName);
-  return s === 'createprdpr' || s === 'done';
-}
-
 /**
  * Scan candidates for Verified on UAT comments.
- * Today → report as Fixed; older date + Create-PRD-PR/Done → exclude from report.
- * UAT-Testing with an older verified comment remains visible (still in retest).
+ * Today → report as Fixed (+ Scope).
+ * Past date (not today) → exclude from report entirely (any status).
  * If comments cannot be read, JQL-matched keys stay excluded (fail closed).
  */
 async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKeys, isMatchDayFn) {
@@ -465,10 +459,8 @@ async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKey
               })
             };
           }
-          if (isVerifiedStayOutStatus(issue.status)) {
-            return { kind: 'excluded', key: issue.key };
-          }
-          continue;
+          // Comment date is before today → do not include in the report
+          return { kind: 'excluded', key: issue.key };
         }
         // Comments loaded but no Kashan "Verified on UAT" — clear false JQL hit
         if (jqlKeys[issue.key]) return { kind: 'clear', key: issue.key };
@@ -500,8 +492,9 @@ function withoutFixedTodayKeys(issues, fixedTodayKeys) {
 function withoutVerifiedStayOut(issues, excludedKeys) {
   if (!excludedKeys) return issues || [];
   return (issues || []).filter(function (issue) {
-    if (!issue || !excludedKeys[issue.key]) return true;
-    return !isVerifiedStayOutStatus(issue.status);
+    if (!issue || !issue.key) return false;
+    // Past-dated "Verified on UAT" keys are excluded from every report section
+    return !excludedKeys[issue.key];
   });
 }
 
@@ -558,19 +551,7 @@ async function fetchReportIssues() {
   verifiedTodayJqlIssues.forEach(function (issue) {
     if (issue && issue.key) verifiedTodayJqlKeys[issue.key] = true;
   });
-  // Scan UAT-Testing, updated-today, fixed-today, and JQL comment hits for Verified on UAT comments
-  var verifiedScanCandidates = mergeIssuesByKey(
-    uatTestingIssues,
-    mergeIssuesByKey(updatedTodayIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(verifiedJqlIssues, verifiedTodayJqlIssues)))
-  );
-  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates, verifiedJqlKeys, verifiedTodayJqlKeys);
-  var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
-  var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
-  fixedTodayIssues = withoutVerifiedStayOut(mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues), verifiedExcludedKeys);
-  trackerIssues = withoutVerifiedStayOut(trackerIssues, verifiedExcludedKeys);
-  todayIssues = withoutVerifiedStayOut(todayIssues, verifiedExcludedKeys);
-  openToDoIssues = withoutVerifiedStayOut(openToDoIssues, verifiedExcludedKeys);
-  todayDefectIssues = withoutVerifiedStayOut(todayDefectIssues, verifiedExcludedKeys);
+  // Enhancements fetched before Verified-on-UAT scan so past-dated comments exclude them too
   var enhancementIssues = await jiraSearch(enhancementsJqlStr);
   var enhancementFixedTodayIssues = await jiraSearch(enhancementsFixedTodayJqlStr);
   enhancementFixedTodayIssues.forEach(function (issue) {
@@ -602,6 +583,49 @@ async function fetchReportIssues() {
   mergeSalesPortalEnhancementsFrom(todayIssues);
   mergeSalesPortalEnhancementsFrom(openToDoIssues);
   mergeSalesPortalEnhancementsFrom(todayDefectIssues);
+
+  // Scan bugs + enhancements for Verified on UAT comments
+  var verifiedScanCandidates = mergeIssuesByKey(
+    uatTestingIssues,
+    mergeIssuesByKey(
+      updatedTodayIssues,
+      mergeIssuesByKey(
+        fixedTodayIssues,
+        mergeIssuesByKey(
+          verifiedJqlIssues,
+          mergeIssuesByKey(verifiedTodayJqlIssues, enhancementIssues)
+        )
+      )
+    )
+  );
+  var verifiedAnnot = await annotateVerifiedOnUat(verifiedScanCandidates, verifiedJqlKeys, verifiedTodayJqlKeys);
+  var verifiedOnUatTodayIssues = verifiedAnnot.todayIssues || [];
+  var verifiedExcludedKeys = verifiedAnnot.excludedKeys || {};
+  fixedTodayIssues = withoutVerifiedStayOut(mergeIssuesByKey(fixedTodayIssues, verifiedOnUatTodayIssues), verifiedExcludedKeys);
+  trackerIssues = withoutVerifiedStayOut(trackerIssues, verifiedExcludedKeys);
+  todayIssues = withoutVerifiedStayOut(todayIssues, verifiedExcludedKeys);
+  openToDoIssues = withoutVerifiedStayOut(openToDoIssues, verifiedExcludedKeys);
+  todayDefectIssues = withoutVerifiedStayOut(todayDefectIssues, verifiedExcludedKeys);
+  enhancementIssues = withoutVerifiedStayOut(enhancementIssues, verifiedExcludedKeys);
+  // Verified today on an enhancement → keep as Fixed today in enhancement tables
+  var verifiedTodayByKey = {};
+  verifiedOnUatTodayIssues.forEach(function (issue) {
+    if (issue && issue.key) verifiedTodayByKey[issue.key] = issue;
+  });
+  enhancementIssues = enhancementIssues.map(function (issue) {
+    if (!issue || !verifiedTodayByKey[issue.key]) return issue;
+    var matched = verifiedTodayByKey[issue.key];
+    return Object.assign({}, issue, {
+      verifiedOnUatToday: true,
+      fixedToday: true,
+      verifiedCommentCreated: matched.verifiedCommentCreated || issue.verifiedCommentCreated,
+      timestamp: matched.timestamp || issue.timestamp
+    });
+  });
+  // Drop enhancements that were only in the pool via bug lists and are past-verified (already filtered)
+  enhancementIssues = enhancementIssues.filter(function (issue) {
+    return issue && !verifiedExcludedKeys[issue.key];
+  });
   var regressionIssues = filterReportIssues(await jiraSearch(regressionJqlStr));
   regressionIssues.forEach(function (issue) { issue.regression = true; });
   fixedTodayIssues.forEach(function (issue) {
@@ -679,8 +703,11 @@ async function fetchReportIssues() {
   });
   mergeSalesPortalEnhancementsFrom(trackerIssues);
   mergeSalesPortalEnhancementsFrom(defectLogIssues);
-  // Drop any non-today Done tasks from enhancements
+  enhancementIssues = withoutVerifiedStayOut(enhancementIssues, verifiedExcludedKeys);
+  // Drop any non-today Done tasks from enhancements (verified-today counts as fixed today)
   enhancementIssues = enhancementIssues.filter(function (issue) {
+    if (!issue || verifiedExcludedKeys[issue.key]) return false;
+    if (issue.verifiedOnUatToday) return true;
     if (!isDoneStatus(issue.status)) return true;
     return !!enhancementFixedTodayKeys[issue.key];
   });

@@ -3254,11 +3254,14 @@ function isImprovementJiraStatus(status){
 
 function isEnhancementEligibleIssue(issue){
   if(!issue || issue.source === 'ado') return false;
+  // Past-dated "Verified on UAT" — same rule as defect log / tracker
+  if(issue.verifiedOnUatExcluded) return false;
   var type = String(issue.issueType || '').trim().toLowerCase();
   var s = normalizeJiraStatusName(issue.status);
   if(s === 'improvement') return type === 'bug' || type === 'task' || type === 'sub-task' || type === 'subtask';
   if(s === 'todo' && type === 'task') return true;
   if((s === 'createprdpr' || s === 'done') && type === 'task') return isIssueFixedToday(issue);
+  if(issue.verifiedOnUatToday && isIssueFixedToday(issue) && (type === 'task' || type === 'bug' || type === 'sub-task' || type === 'subtask')) return true;
   if(isSalesPortalModule(issue) && isEnhancementTitledIssue(issue) && !isClosedJiraStatus(issue.status) && s !== 'canceled' && s !== 'cancelled') return true;
   return false;
 }
@@ -4220,6 +4223,7 @@ function syncEnhancementsFromIssues(issues){
     var seen = {};
     uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
+      if(iss.verifiedOnUatExcluded) return;
       if(!isEnhancementEligibleIssue(iss)) return;
       if(isSalesPortalModule(iss)) return;
       var key = normalizeIssueKey(iss.key);
@@ -4258,6 +4262,7 @@ function syncSalesPortalEnhancementsFromIssues(issues){
     var seen = {};
     uniqueIssuesByKey(issues).forEach(function(iss){
       if(!iss || (iss.source || 'jira') !== 'jira') return;
+      if(iss.verifiedOnUatExcluded) return;
       if(!isEnhancementEligibleIssue(iss)) return;
       if(!isSalesPortalModule(iss)) return;
       var key = normalizeIssueKey(iss.key);
@@ -4366,15 +4371,16 @@ function removeIssueKeysFromReport(keys){
     updateTotalActiveDefectsFromTracker();
   }
 
-  var defectTbl = document.getElementById('tbl36');
-  if(defectTbl){
-    for(var i = defectTbl.rows.length - 2; i >= 1; i--){
-      var drow = defectTbl.rows[i];
+  ['tbl36', 'tblEnhancements', 'tblSalesPortalEnhancements'].forEach(function(tableId){
+    var tbl = document.getElementById(tableId);
+    if(!tbl) return;
+    for(var i = tbl.rows.length - 2; i >= 1; i--){
+      var drow = tbl.rows[i];
       if(!drow || isPlaceholderRow(drow)) continue;
       var dkey = normalizeIssueKey(getDefectLogJiraKey(drow));
       if(dkey && set[dkey.toUpperCase()]) drow.remove();
     }
-  }
+  });
 
   if(typeof lastJiraIssueMap === 'object' && lastJiraIssueMap){
     Object.keys(lastJiraIssueMap).forEach(function(mk){
@@ -4448,6 +4454,19 @@ function applyJiraPayload(payload){
   applySyncDataToTracker(trackerMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
   removeIssueKeysFromOpenTrackerRow(Object.keys(serverFixedTodayKeys));
   syncDefectLogFromIssueMap(defectMap, 'jira');
+  var verifiedExcludedSet = {};
+  (payload.verifiedExcludedKeys || []).forEach(function(key){
+    var norm = normalizeIssueKey(key);
+    if(norm) verifiedExcludedSet[norm.toUpperCase()] = true;
+  });
+  function markVerifiedExcluded(issue){
+    if(!issue || !issue.key) return issue;
+    var norm = normalizeIssueKey(issue.key);
+    if(norm && verifiedExcludedSet[norm.toUpperCase()]){
+      issue.verifiedOnUatExcluded = true;
+    }
+    return issue;
+  }
   removeIssueKeysFromReport(payload.verifiedExcludedKeys || []);
   purgeAndDedupeIssueSections();
   scheduleDefectLogSync();
@@ -4463,7 +4482,9 @@ function applyJiraPayload(payload){
     openIssues,
     fixedTodayIssues,
     Object.keys(defectMap).map(function(key){ return defectMap[key]; })
-  ));
+  )).map(markVerifiedExcluded).filter(function(issue){
+    return issue && !issue.verifiedOnUatExcluded;
+  });
   syncEnhancementsFromIssues(enhancementPool);
   syncSalesPortalEnhancementsFromIssues(enhancementPool);
   purgeAndDedupeIssueSections();
