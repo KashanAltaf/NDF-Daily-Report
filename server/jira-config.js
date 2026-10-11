@@ -155,14 +155,21 @@ function openBugsJql(extra) {
 }
 
 function awaitingPrDeploymentStatusesInJql() {
-  return '"' + STATUS.DEPLOYMENT + '", "' + STATUS.MERGE + '", "' + STATUS.CLOSED + '"';
+  // Include POR/PB deployment & approval lane names used on Merchant/Sales Portal boards
+  return '"' + STATUS.DEPLOYMENT + '", "' + STATUS.MERGE + '", "' + STATUS.CLOSED + '"' +
+    ', "PRD-PR-APPROVAL", "PRD-DB-DEPLOYMENT", "PRD-Deployment", "UAT-DB-APPROVAL"';
+}
+
+function portalOpenExtraStatusesInJql() {
+  // Status literally named "Bug" (POR) and ON-HOLD should still appear in defect log
+  return '"Bug", "ON-HOLD", "On Hold"';
 }
 
 /** Today's bugs for defect log — open statuses created today, Awaiting PR Deployment statuses, Fixed/Done today, or Canceled today */
 function todayDefectLogJql(extra) {
   var jql = BASE_JQL + ' AND (' +
     '(created >= startOfDay() AND status in (' + defectOpenStatusesInJql() + ', ' + fixedStatusesInJql() + ', "' + STATUS.CANCELED + '"))' +
-    ' OR status in (' + awaitingPrDeploymentStatusesInJql() + ')' +
+    ' OR status in (' + awaitingPrDeploymentStatusesInJql() + ', ' + portalOpenExtraStatusesInJql() + ')' +
     ' OR status changed to "' + STATUS.FIXED + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.DONE + '" during (startOfDay(), now())' +
     ' OR status changed to "' + STATUS.CANCELED + '" during (startOfDay(), now())' +

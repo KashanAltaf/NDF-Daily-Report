@@ -3446,8 +3446,9 @@ function fillTrackerRowByLabel(label, issues){
 }
 
 function isOpenJiraStatusName(s){
-  // In Progress is the Sub-task equivalent of open / pending
-  return s === 'todo' || s === 'bugissue' || s === 'inprogress';
+  // In Progress is the Sub-task equivalent of open / pending.
+  // POR often uses a status literally named "Bug"; ON-HOLD stays visible as open/parked work.
+  return s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold';
 }
 
 function hasAttachedPr(issue){
@@ -3465,7 +3466,8 @@ function isNewOrOpenIssue(issue){
 }
 
 function isAwaitingPrDeploymentStatusName(s){
-  return s === 'uatdeployment' || s === 'uatmergeissue';
+  return s === 'uatdeployment' || s === 'uatmergeissue' ||
+    s === 'prddbdeployment' || s === 'prddeployment' || s === 'uatdbapproval';
 }
 
 function isAwaitingPrApprovalStatusName(s){
@@ -3518,10 +3520,11 @@ function formatStatusLabel(status, issue){
   if(issue && issue.verifiedOnUatToday && isIssueFixedToday(issue)) return 'Fixed';
   if(issue && issue.fixedToday && isIssueFixedToday(issue)) return 'Fixed';
   var s = normalizeJiraStatusName(status);
-  if(isAwaitingPrApprovalStatusName(s) || /^awaiting\s*pr\s*approval$/i.test(String(status || '').trim())) return 'Awaiting PR Approval';
+  if(isAwaitingPrApprovalStatusName(s) || /^awaiting\s*pr\s*approval$/i.test(String(status || '').trim()) || s === 'prdprapproval') return 'Awaiting PR Approval';
   if(isAwaitingPrDeployment(issue)) return 'Awaiting PR Deployment';
   if(issue && issue.source === 'ado') return formatAdoStatusLabel(status);
   if(isAwaitingPrDeploymentStatusName(s) || /^awaiting\s*pr\s*deployment$/i.test(String(status || '').trim())) return 'Awaiting PR Deployment';
+  if(s === 'onhold') return 'Open';
   if(isOpenJiraStatusName(s)) return 'Open';
   if(s === 'createprdpr' || s === 'done') return 'Fixed';
   if(s === 'improvement') return 'Open';

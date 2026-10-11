@@ -87,7 +87,12 @@ function normalizeStatusName(name) {
 
 function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
-  if (s === 'todo' || s === 'bugissue' || s === 'inprogress' || s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval' || s === 'prdprapproval') return 'open';
+  // Open / pending: classic open statuses + POR/PB deployment & approval lanes + held bugs
+  if (
+    s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' ||
+    s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval' || s === 'prdprapproval' ||
+    s === 'prddbdeployment' || s === 'prddeployment' || s === 'uatdbapproval'
+  ) return 'open';
   if (s === 'createprdpr' || s === 'done') return 'fixed';
   if (s === 'uattesting') return 'retest';
   if (s === 'canceled' || s === 'cancelled') return 'closed';
@@ -391,15 +396,16 @@ function isVerifiedOnUatCommentMatch(comment) {
   return commentHasVerifiedOnUatText(comment);
 }
 
-/** Once verified, stay out of the report while still UAT-Testing or a Fixed Jira status */
+/** Once verified, stay out only after leave-retest (Create-PRD-PR / Done). UAT-Testing still shows in defect log. */
 function isVerifiedStayOutStatus(statusName) {
   var s = normalizeStatusName(statusName);
-  return s === 'uattesting' || s === 'createprdpr' || s === 'done';
+  return s === 'createprdpr' || s === 'done';
 }
 
 /**
  * Scan candidates for Verified on UAT comments.
- * Today → report as Fixed; older date + UAT-Testing/Fixed status → exclude from report.
+ * Today → report as Fixed; older date + Create-PRD-PR/Done → exclude from report.
+ * UAT-Testing with an older verified comment remains visible (still in retest).
  * If comments cannot be read, JQL-matched keys stay excluded (fail closed).
  */
 async function annotateVerifiedOnUat(issues, jqlMatchedKeys, verifiedTodayJqlKeys, isMatchDayFn) {
@@ -643,7 +649,27 @@ async function fetchReportIssues() {
       issue.timestamp = matched.timestamp || issue.timestamp;
     }
   });
-  var defectLogIssues = mergeIssuesByKey(openToDoIssues, mergeIssuesByKey(todayDefectIssues, mergeIssuesByKey(fixedTodayIssues, mergeIssuesByKey(canceledTodayIssues, mergeIssuesByKey(todayIssues, buckets.retest || [])))));
+  // Include tracker open/retest/other so Sales/Merchant portal bugs in PRD-PR-APPROVAL,
+  // PRD-DB-DEPLOYMENT, UAT-DB-APPROVAL, ON-HOLD, status "Bug", etc. reach the defect log.
+  var defectLogIssues = mergeIssuesByKey(
+    openToDoIssues,
+    mergeIssuesByKey(
+      todayDefectIssues,
+      mergeIssuesByKey(
+        fixedTodayIssues,
+        mergeIssuesByKey(
+          canceledTodayIssues,
+          mergeIssuesByKey(
+            todayIssues,
+            mergeIssuesByKey(
+              buckets.retest || [],
+              mergeIssuesByKey(buckets.open || [], trackerIssues)
+            )
+          )
+        )
+      )
+    )
+  );
   defectLogIssues = withoutVerifiedStayOut(defectLogIssues, verifiedExcludedKeys).filter(function (issue) {
     if (issue && issue.verifiedOnUatToday) return !!fixedTodayKeys[issue.key];
     if (isFixedStatus(issue.status)) return isEligibleFixedIssue(issue, fixedTodayKeys);
