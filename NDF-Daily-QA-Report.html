@@ -837,8 +837,9 @@
     <h3>Import Playwright Report</h3>
     <p style="margin:0 0 10px;font-size:12px;color:#555;">Upload <strong>playwright-report/index.html</strong> (Playwright Test Report). It is parsed locally in your browser — no server upload needed.</p>
     <p style="margin:0 0 10px;font-size:12px;color:#555;">You can also upload <strong>report.json</strong> if you generated it with the JSON reporter.</p>
-    <label for="playwrightReportFile">Playwright report file</label>
-    <input id="playwrightReportFile" type="file" accept=".json,.html,application/json,text/html">
+    <p style="margin:0 0 10px;font-size:12px;color:#555;">Each import <strong>adds</strong> rows under existing ones (does not overwrite). Select multiple files at once, or import again to append more.</p>
+    <label for="playwrightReportFile">Playwright report file(s)</label>
+    <input id="playwrightReportFile" type="file" accept=".json,.html,application/json,text/html" multiple>
     <div class="link-modal-actions">
       <button type="button" class="apply" onclick="confirmPlaywrightImport()">Import</button>
       <button type="button" class="cancel" onclick="closePlaywrightImportModal()">Cancel</button>
@@ -5349,7 +5350,7 @@ function repairAutomationTableColumns(){
     '<td style="padding:7px 8px;border:1px solid #c7d2fe;width:50px;text-align:center;">Flaky</td>' +
     '<td style="padding:7px 8px;border:1px solid #c7d2fe;width:55px;text-align:center;">Skipped</td>' +
     '<td style="padding:7px 8px;border:1px solid #c7d2fe;width:85px;">Run Time</td>';
-  applyPlaywrightRowsToTable(rebuilt);
+  applyPlaywrightRowsToTable(rebuilt, { replace: true, _skipColumnRepair: true });
   return true;
 }
 
@@ -5509,19 +5510,47 @@ function normalizeAutomationStatusCells(table){
   }
 }
 
-function applyPlaywrightRowsToTable(rows){
+function isAutomationPlaceholderRow(tr){
+  if(!tr || !tr.cells || !tr.cells.length) return true;
+  if(isPlaceholderRow(tr)) return true;
+  var moduleText = String(tr.cells[0].textContent || '').replace(/\u00a0/g, ' ').trim();
+  var caseText = tr.cells[2] ? String(tr.cells[2].textContent || '').replace(/\u00a0/g, ' ').trim() : '';
+  return /\[Add module\]/i.test(moduleText) || /\[Add test case\]/i.test(caseText);
+}
+
+function restripeAutomationTable(table){
+  if(!table) return;
+  var stripe = 'background:#eef2ff;';
+  for(var r = 1; r < table.rows.length; r++){
+    if((r - 1) % 2 === 0) table.rows[r].setAttribute('style', stripe);
+    else table.rows[r].removeAttribute('style');
+  }
+}
+
+function applyPlaywrightRowsToTable(rows, options){
+  options = options || {};
+  var replace = !!options.replace;
   repairAutomationSection();
-  repairAutomationTableColumns();
+  // Avoid recursion: column repair itself calls apply with replace:true
+  if(!options._skipColumnRepair) repairAutomationTableColumns();
   var table = document.getElementById('tblAutomation');
   if(!table) return 0;
-  while(table.rows.length > 1) table.deleteRow(1);
+  if(replace){
+    while(table.rows.length > 1) table.deleteRow(1);
+  } else {
+    // Keep existing imported rows; drop only empty template placeholders
+    for(var r = table.rows.length - 1; r >= 1; r--){
+      if(isAutomationPlaceholderRow(table.rows[r])) table.deleteRow(r);
+    }
+  }
   var stripe = 'background:#eef2ff;';
   var pad = 'padding:6px 8px;border:1px solid #c7d2fe;';
   var statusPad = pad + 'text-align:center;';
+  var existingDataRows = Math.max(table.rows.length - 1, 0);
   (rows || []).forEach(function(row, i){
     row = normalizeAutomationRow(row);
     var tr = document.createElement('tr');
-    if(i % 2 === 0) tr.setAttribute('style', stripe);
+    if((existingDataRows + i) % 2 === 0) tr.setAttribute('style', stripe);
     var values = [
       row.module,
       row.tcNo,
@@ -5547,9 +5576,10 @@ function applyPlaywrightRowsToTable(rows){
     });
     table.appendChild(tr);
   });
-  if(!rows || !rows.length){
+  if(table.rows.length < 2){
     addRow('tblAutomation');
   }
+  restripeAutomationTable(table);
   lockReportStructure();
   updateSectionNumbers();
   scheduleAutoSave();
@@ -5800,47 +5830,67 @@ function importPlaywrightReportViaServer(payload){
   });
 }
 
+function readFileAsText(file){
+  return new Promise(function(resolve, reject){
+    var reader = new FileReader();
+    reader.onload = function(){ resolve(String(reader.result || '')); };
+    reader.onerror = function(){ reject(new Error('Could not read ' + (file && file.name ? file.name : 'the selected file') + '.')); };
+    reader.readAsText(file);
+  });
+}
+
+function parsePlaywrightFileToRows(file){
+  return readFileAsText(file).then(function(text){
+    return parsePlaywrightReportText(text, file.name)
+      .then(function(rows){
+        if(rows && rows.length) return rows;
+        throw new Error('No test results found in ' + file.name + '.');
+      })
+      .catch(function(localErr){
+        if(String(file.name || '').toLowerCase().endsWith('.html')) throw localErr;
+        return importPlaywrightReportViaServer({ report: text, fileName: file.name })
+          .then(function(result){
+            if(!result.ok || !result.data.ok){
+              throw new Error((result.data && result.data.error) || localErr.message || 'Import failed');
+            }
+            var rows = result.data.rows || [];
+            if(!rows.length) throw new Error('No test results found in ' + file.name + '.');
+            return rows;
+          });
+      });
+  });
+}
+
 function confirmPlaywrightImport(){
   var input = document.getElementById('playwrightReportFile');
-  if(!input || !input.files || !input.files[0]){
+  if(!input || !input.files || !input.files.length){
     alert('Choose a Playwright report file first.');
     return;
   }
-  var file = input.files[0];
-  var reader = new FileReader();
+  var files = Array.prototype.slice.call(input.files);
+  setSaveStatus('saving', 'Importing Playwright report\u2026');
   var fail = function(err){
     setSaveStatus('err', 'Playwright import failed');
     alert('Could not import Playwright report:\n\n' + (err.message || err) +
       '\n\nUpload playwright-report/index.html from your Playwright test run.');
   };
-  reader.onload = function(){
-    var text = String(reader.result || '');
-    var finish = function(rows){
-      var count = applyPlaywrightRowsToTable(rows);
-      closePlaywrightImportModal();
-      showToast('Imported ' + count + ' automation test row(s).');
-      setSaveStatus('ok', 'Playwright report imported');
-    };
-    parsePlaywrightReportText(text, file.name)
-      .then(function(rows){
-        if(rows && rows.length) finish(rows);
-        else fail(new Error('No test results found in report.'));
-      })
-      .catch(function(localErr){
-        if(String(file.name || '').toLowerCase().endsWith('.html')){
-          fail(localErr);
-          return;
-        }
-        importPlaywrightReportViaServer({ report: text, fileName: file.name })
-          .then(function(result){
-            if(!result.ok || !result.data.ok) throw new Error((result.data && result.data.error) || localErr.message || 'Import failed');
-            finish(result.data.rows || []);
-          })
-          .catch(fail);
+  var chain = Promise.resolve([]);
+  files.forEach(function(file){
+    chain = chain.then(function(allRows){
+      return parsePlaywrightFileToRows(file).then(function(rows){
+        return allRows.concat(rows || []);
       });
-  };
-  reader.onerror = function(){ fail(new Error('Could not read the selected file.')); };
-  reader.readAsText(file);
+    });
+  });
+  chain.then(function(allRows){
+    if(!allRows.length) throw new Error('No test results found in report.');
+    var count = applyPlaywrightRowsToTable(allRows);
+    var table = document.getElementById('tblAutomation');
+    var total = table ? Math.max(table.rows.length - 1, 0) : count;
+    closePlaywrightImportModal();
+    showToast('Added ' + count + ' automation row(s) (table now has ' + total + ').');
+    setSaveStatus('ok', 'Playwright report imported');
+  }).catch(fail);
 }
 
 function resetPageOnePanelHeights(){
