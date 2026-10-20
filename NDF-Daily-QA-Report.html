@@ -94,6 +94,9 @@
   .remrow { background:#fdecee;color:#b42318;border:1px solid #f3b6bc;border-radius:5px;
     padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer; }
   .remrow:hover { background:#fcd9de; }
+  .clearall { background:#fdecee;color:#b42318;border:1px solid #f3b6bc;border-radius:5px;
+    padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer; }
+  .clearall:hover { background:#fcd9de; }
   .row-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   @media print { .no-copy { display:none !important; } }
   .section-bar { margin:0 0 8px; }
@@ -519,7 +522,7 @@
     </tr>
     <tr style="background:#eef2ff;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">[Add module]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">[Add test case]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td></tr>
   </table>
-  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblAutomation')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblAutomation')">− Remove row</button></div>
+  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblAutomation')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblAutomation')">− Remove row</button><button type="button" class="clearall" onclick="clearAutomationTable()">Clear all</button></div>
   <div class="automation-module-panel" id="moduleCoveredPanel" contenteditable="false">
     <div class="automation-module-header" contenteditable="false">Module Covered:</div>
     <div class="automation-module-inner" contenteditable="false">
@@ -756,7 +759,7 @@
     </tr>
     <tr style="background:#eef2ff;"><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">[Add module]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">[Add test case]</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td><td class="e" contenteditable="true" style="padding:6px 8px;border:1px solid #c7d2fe;">&#8212;</td></tr>
   </table>
-  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblAutomation')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblAutomation')">− Remove row</button></div>
+  <div class="no-copy row-actions" style="margin:6px 0 14px;"><button type="button" class="addrow" onclick="addRow('tblAutomation')">+ Add row</button><button type="button" class="remrow" onclick="removeRow('tblAutomation')">− Remove row</button><button type="button" class="clearall" onclick="clearAutomationTable()">Clear all</button></div>
   <div class="automation-module-panel" id="moduleCoveredPanel" contenteditable="false">
     <div class="automation-module-header" contenteditable="false">Module Covered:</div>
     <div class="automation-module-inner" contenteditable="false">
@@ -5518,6 +5521,79 @@ function isAutomationPlaceholderRow(tr){
   return /\[Add module\]/i.test(moduleText) || /\[Add test case\]/i.test(caseText);
 }
 
+function ensureAutomationClearButton(){
+  var table = document.getElementById('tblAutomation');
+  if(!table || !table.parentNode) return;
+
+  var actions = null;
+  var sibling = table.nextElementSibling;
+  while(sibling){
+    if(sibling.classList && sibling.classList.contains('row-actions')){
+      actions = sibling;
+      break;
+    }
+    if(sibling.id === 'moduleCoveredPanel' || (sibling.classList && sibling.classList.contains('automation-module-panel'))) break;
+    sibling = sibling.nextElementSibling;
+  }
+
+  if(!actions){
+    var host = table.closest('.report-section') || table.parentElement;
+    if(host){
+      var candidates = host.querySelectorAll('.row-actions');
+      for(var i = 0; i < candidates.length; i++){
+        if(/tblAutomation/.test(candidates[i].innerHTML || '')){
+          actions = candidates[i];
+          break;
+        }
+      }
+      if(!actions) actions = host.querySelector('.row-actions');
+    }
+  }
+
+  if(!actions){
+    actions = document.createElement('div');
+    actions.className = 'no-copy row-actions';
+    actions.setAttribute('style', 'margin:6px 0 14px;');
+    actions.innerHTML =
+      '<button type="button" class="addrow" onclick="addRow(\'tblAutomation\')">+ Add row</button>' +
+      '<button type="button" class="remrow" onclick="removeRow(\'tblAutomation\')">\u2212 Remove row</button>';
+    table.insertAdjacentElement('afterend', actions);
+  }
+
+  var btn = actions.querySelector('.clearall, [onclick*="clearAutomationTable"]');
+  if(!btn){
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'clearall';
+    btn.textContent = 'Clear all';
+    btn.setAttribute('onclick', 'clearAutomationTable()');
+    var rem = actions.querySelector('.remrow');
+    if(rem && rem.parentNode === actions) rem.insertAdjacentElement('afterend', btn);
+    else actions.appendChild(btn);
+  } else {
+    btn.className = 'clearall';
+    btn.textContent = 'Clear all';
+    btn.setAttribute('onclick', 'clearAutomationTable()');
+    btn.style.display = '';
+  }
+}
+
+function clearAutomationTable(){
+  repairAutomationSection();
+  var table = document.getElementById('tblAutomation');
+  if(!table) return;
+  var dataRows = Math.max(table.rows.length - 1, 0);
+  if(dataRows <= 1 && table.rows[1] && isAutomationPlaceholderRow(table.rows[1])){
+    showToast('Automation table is already empty.');
+    return;
+  }
+  if(!confirm('Clear all automation testing rows?')) return;
+  applyPlaywrightRowsToTable([], { replace: true });
+  ensureAutomationClearButton();
+  showToast('Cleared automation testing rows.');
+  setSaveStatus('ok', 'Automation table cleared');
+}
+
 function restripeAutomationTable(table){
   if(!table) return;
   var stripe = 'background:#eef2ff;';
@@ -5580,6 +5656,7 @@ function applyPlaywrightRowsToTable(rows, options){
     addRow('tblAutomation');
   }
   restripeAutomationTable(table);
+  ensureAutomationClearButton();
   lockReportStructure();
   updateSectionNumbers();
   scheduleAutoSave();
@@ -7305,6 +7382,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var addedAutomation = repairAutomationSection();
   repairModuleCoveredPanel();
   repairAutomationTableColumns();
+  ensureAutomationClearButton();
   normalizeModuleCoveredPanel();
   normalizeAutomationStatusCells(document.getElementById('tblAutomation'));
   lockReportStructure();
@@ -7315,10 +7393,12 @@ document.addEventListener('DOMContentLoaded', function(){
   requestAnimationFrame(function(){
     if(isReportStructureBroken()) repairCorruptedReportIfNeeded();
     forcePageOnePanels();
+    ensureAutomationClearButton();
     schedulePageOnePanelSync();
     lockReportStructure();
     requestAnimationFrame(function(){
       if(!isScopePanelPlaced()) forcePageOnePanels();
+      ensureAutomationClearButton();
       schedulePageOnePanelSync();
       if(!isReportStructureBroken()) scheduleAutoSave();
     });

@@ -128,47 +128,56 @@ function isEligibleFixedIssue(issue, fixedTodayKeys) {
 }
 
 async function jiraSearchWithAuth(jql, auth) {
+  // Legacy POST /rest/api/3/search was removed (CHANGE-2046). Use enhanced search only.
   var fields = ['summary', 'status', 'priority', 'description', 'issuelinks', 'assignee', 'reporter', 'created', 'updated', 'issuetype', 'project', cfg.GITHUB_PR_URL_UAT_FIELD];
-  var attempts = [
-    {
-      url: cfg.JIRA_BASE_URL + '/rest/api/3/search/jql',
-      body: { jql: jql, maxResults: 100, fields: fields }
-    },
-    {
-      url: cfg.JIRA_BASE_URL + '/rest/api/3/search',
-      body: { jql: jql, maxResults: 100, fields: fields }
-    }
-  ];
+  var url = cfg.JIRA_BASE_URL + '/rest/api/3/search/jql';
+  var allIssues = [];
+  var nextPageToken = null;
+  var pageGuard = 0;
 
-  var lastErr = null;
-  for (var i = 0; i < attempts.length; i++) {
-    try {
-      var res = await fetch(attempts[i].url, {
-        method: 'POST',
-        headers: {
-          Authorization: auth,
-          Accept: 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(attempts[i].body)
-      });
-      var text = await res.text();
-      var data;
-      try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
-      if (res.status === 401 || res.status === 403) {
-        lastErr = new Error('Jira auth failed');
-        break;
-      }
-      if (!res.ok) {
-        lastErr = new Error((data.errorMessages && data.errorMessages.join('; ')) || data.message || text || res.statusText);
-        continue;
-      }
-      return (data.issues || []).map(mapIssue);
-    } catch (e) {
-      lastErr = e;
+  while (pageGuard < 50) {
+    pageGuard += 1;
+    var body = {
+      jql: jql,
+      maxResults: 100,
+      fields: fields
+    };
+    if (nextPageToken) body.nextPageToken = nextPageToken;
+
+    var res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: auth,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    var text = await res.text();
+    var data;
+    try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
+
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('Jira auth failed');
     }
+    if (!res.ok) {
+      throw new Error(
+        (data.errorMessages && data.errorMessages.join('; ')) ||
+        data.message ||
+        text ||
+        res.statusText ||
+        'Jira search failed'
+      );
+    }
+
+    var pageIssues = Array.isArray(data.issues) ? data.issues : [];
+    allIssues = allIssues.concat(pageIssues);
+
+    if (data.isLast === true || !data.nextPageToken || !pageIssues.length) break;
+    nextPageToken = data.nextPageToken;
   }
-  throw lastErr || new Error('Jira search failed');
+
+  return allIssues.map(mapIssue);
 }
 
 async function jiraSearch(jql) {
