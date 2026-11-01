@@ -30,15 +30,16 @@ function jiraAuthAccounts() {
     return account.email && account.token;
   });
 }
-/** Comma-separated Jira project keys (PB + Space Merchant Portal / POR) */
-const JIRA_PROJECTS = (process.env.JIRA_PROJECT || 'PB,POR')
+/** Comma-separated Jira project keys (PB + Space Merchant Portal / POR + WEB) */
+const JIRA_PROJECTS = (process.env.JIRA_PROJECT || 'PB,POR,WEB')
   .split(',')
   .map(function (s) { return s.trim(); })
   .filter(Boolean);
 const JIRA_PROJECT = JIRA_PROJECTS[0] || 'PB';
 /** Default report module when summary has no [Module] prefix */
 const PROJECT_MODULE_DEFAULTS = {
-  POR: 'Space Merchant Portal'
+  POR: 'Space Merchant Portal',
+  WEB: 'WEB'
 };
 
 const REPORTERS = ['Munawar Gul', 'Kashan Altaf'];
@@ -274,7 +275,7 @@ function verifiedOnUatCommentJql(extra) {
 }
 
 /**
- * Scope tested today candidates — any issue type in PB/POR updated recently with a
+ * Scope tested today candidates — any issue type in PB/POR/WEB updated recently with a
  * "Verified on UAT" comment mention. Author + comment calendar date are enforced in
  * collectScopeVerifiedTodayIssues (includes Story, Bug, Task, Sub-task, etc.).
  */

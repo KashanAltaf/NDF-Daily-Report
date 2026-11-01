@@ -36,7 +36,7 @@ Draft auto-saves in the browser (`localStorage`). **Reload Template** discards t
 
 **Rule (strict):**
 
-- Projects: **PB** and **POR** (configurable)
+- Projects: **PB**, **POR**, and **WEB** (configurable)
 - Any issue type (Story, Bug, Task, Sub-task, …)
 - Comment body contains **Verified on UAT**
 - Comment author is **Kashan Altaf**
@@ -54,12 +54,13 @@ Draft auto-saves in the browser (`localStorage`). **Reload Template** discards t
 
 ## Jira sync behaviour (high level)
 
-- Projects: `JIRA_PROJECT` (default `PB,POR`)
+- Projects: `JIRA_PROJECT` (default `PB,POR,WEB`)
 - Reporters: Munawar Gul, Kashan Altaf (sub-tasks can match by assignee)
 - Open bugs: To Do / Bug/Issue (and related open flows)
 - Fixed today: Create-PRD-PR / Done (plus verified-on-UAT treated as fixed where configured)
 - UAT-Testing + verified comments drive retest / exclusion rules
 - POR issues without a `[Module]` prefix default module to **Space Merchant Portal**
+- WEB issues without a `[Module]` prefix default module to **WEB**
 - Enhancements: IMPROVEMENT / Tasks; Sales Portal table if title module mentions KYC or Sales Portal
 
 Timezone for “today”: **Asia/Karachi**.
@@ -124,7 +125,7 @@ NDF-Daily-Report/
 | `JIRA_EMAIL` | Jira user email(s), comma-separated |
 | `JIRA_API_TOKEN` | API token(s), aligned with emails |
 | `JIRA_API_TOKEN_NAMIPAY` | Optional token for @namipay.com.sa |
-| `JIRA_PROJECT` | e.g. `PB,POR` |
+| `JIRA_PROJECT` | e.g. `PB,POR,WEB` |
 | `ADO_PAT` / org / project | Azure DevOps sync |
 | `AUTH_SECRET` / `AUTH_TOTP_SECRET` / `AUTH_EMAIL` | Optional login |
 | `REPORT_PORT` | Local port (default `8768`) |
