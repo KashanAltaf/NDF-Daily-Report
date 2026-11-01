@@ -90,6 +90,7 @@ function bucketForStatus(statusName) {
   // Open / pending: classic open statuses + POR/PB deployment & approval lanes + held bugs
   if (
     s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' ||
+    s === 'qatesting' ||
     s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval' || s === 'prdprapproval' ||
     s === 'prddbdeployment' || s === 'prddeployment' || s === 'uatdbapproval'
   ) return 'open';

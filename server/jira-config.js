@@ -73,12 +73,14 @@ const STATUS = {
   MERGE: 'UAT-MERGE-ISSUE',
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
-  IMPROVEMENT: 'IMPROVEMENT'
+  IMPROVEMENT: 'IMPROVEMENT',
+  /** WEB board testing lane (alias of open / pending QA) */
+  QA_TESTING: 'QA-Testing'
 };
 
 const OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE];
-/** Sub-task default workflow uses In Progress; treat like open (pending) */
-const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress'];
+/** Sub-task default workflow uses In Progress; WEB uses QA-Testing — treat like open (pending) */
+const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress', STATUS.QA_TESTING];
 /** Create-PRD-PR and Done both display as Fixed in the report */
 const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
@@ -162,8 +164,8 @@ function awaitingPrDeploymentStatusesInJql() {
 }
 
 function portalOpenExtraStatusesInJql() {
-  // Status literally named "Bug" (POR) and ON-HOLD should still appear in defect log
-  return '"Bug", "ON-HOLD", "On Hold"';
+  // Status literally named "Bug" (POR), ON-HOLD, and WEB QA-Testing should still appear in defect log
+  return '"Bug", "ON-HOLD", "On Hold", "' + STATUS.QA_TESTING + '"';
 }
 
 /** Today's bugs for defect log — open statuses created today, Awaiting PR Deployment statuses, Fixed/Done today, or Canceled today */

@@ -3455,7 +3455,8 @@ function fillTrackerRowByLabel(label, issues){
 function isOpenJiraStatusName(s){
   // In Progress is the Sub-task equivalent of open / pending.
   // POR often uses a status literally named "Bug"; ON-HOLD stays visible as open/parked work.
-  return s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold';
+  // WEB board uses QA-Testing as an open / pending lane.
+  return s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' || s === 'qatesting';
 }
 
 function hasAttachedPr(issue){

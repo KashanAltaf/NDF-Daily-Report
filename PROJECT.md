@@ -61,6 +61,7 @@ Draft auto-saves in the browser (`localStorage`). **Reload Template** discards t
 - UAT-Testing + verified comments drive retest / exclusion rules
 - POR issues without a `[Module]` prefix default module to **Space Merchant Portal**
 - WEB issues without a `[Module]` prefix default module to **WEB**
+- WEB status **QA-Testing** is treated as open / pending (same lane family as To Do)
 - Enhancements: IMPROVEMENT / Tasks; Sales Portal table if title module mentions KYC or Sales Portal
 
 Timezone for “today”: **Asia/Karachi**.
