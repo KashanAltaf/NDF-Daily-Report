@@ -55,13 +55,14 @@ Draft auto-saves in the browser (`localStorage`). **Reload Template** discards t
 ## Jira sync behaviour (high level)
 
 - Projects: `JIRA_PROJECT` (default `PB,POR,WEB`)
-- Reporters: Munawar Gul, Kashan Altaf (sub-tasks can match by assignee)
+- Reporters: Munawar Gul, Kashan Altaf (assignee alone does not include an issue)
 - Open bugs: To Do / Bug/Issue (and related open flows)
 - Fixed today: Create-PRD-PR / Done (plus verified-on-UAT treated as fixed where configured)
 - UAT-Testing + verified comments drive retest / exclusion rules
 - POR issues without a `[Module]` prefix default module to **Space Merchant Portal**
 - WEB issues without a `[Module]` prefix default module to **WEB**
-- WEB status **QA-Testing** is treated as open / pending (same lane family as To Do)
+- WEB statuses **QA-Testing** / **Bussiness-Testing** are treated as open / pending (same lane family as PB/POR To Do)
+- Defect Detail Log rules are shared across **PB**, **POR**, and **WEB** (reporter-only; Bug/Sub-task)
 - Enhancements: IMPROVEMENT / Tasks; Sales Portal table if title module mentions KYC or Sales Portal
 
 Timezone for “today”: **Asia/Karachi**.

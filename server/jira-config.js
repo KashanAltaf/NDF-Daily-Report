@@ -48,16 +48,12 @@ function reportersInJql() {
   return 'reporter in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')';
 }
 
-function assigneeInJql() {
-  return 'assignee in (' + REPORTERS.map(function (n) { return '"' + n + '"'; }).join(', ') + ')';
-}
-
-/** QA-reported bugs, or Sub-tasks assigned to QA (reporter is often the dev who created the sub-task) */
+/**
+ * Defect log / bug tracker — only issues created (reported) by QA.
+ * Do not include items merely because they are assigned to QA.
+ */
 function defectReporterJql() {
-  return '(' +
-    reportersInJql() +
-    ' OR (issuetype = Sub-task AND ' + assigneeInJql() + ')' +
-  ')';
+  return reportersInJql();
 }
 
 const TEXT_FILTER = (process.env.JIRA_TEXT_FILTER || '').trim();
@@ -74,13 +70,23 @@ const STATUS = {
   CLOSED: 'UAT-PR-Approval',
   CANCELED: 'CANCELED',
   IMPROVEMENT: 'IMPROVEMENT',
-  /** WEB board testing lane (alias of open / pending QA) */
-  QA_TESTING: 'QA-Testing'
+  /** WEB board testing lanes (same open / pending role as To Do on PB/POR) */
+  QA_TESTING: 'QA-Testing',
+  /** Jira WEB board spelling (typo preserved to match workflow) */
+  BUSINESS_TESTING: 'Bussiness-Testing',
+  BUSINESS_TESTING_ALT: 'Business-Testing'
 };
 
 const OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE];
-/** Sub-task default workflow uses In Progress; WEB uses QA-Testing — treat like open (pending) */
-const SUBTASK_OPEN_STATUSES = [STATUS.OPEN, STATUS.OPEN_BUG_ISSUE, 'In Progress', STATUS.QA_TESTING];
+/** Sub-task / WEB open lanes — same defect-log treatment as PB/POR To Do */
+const SUBTASK_OPEN_STATUSES = [
+  STATUS.OPEN,
+  STATUS.OPEN_BUG_ISSUE,
+  'In Progress',
+  STATUS.QA_TESTING,
+  STATUS.BUSINESS_TESTING,
+  STATUS.BUSINESS_TESTING_ALT
+];
 /** Create-PRD-PR and Done both display as Fixed in the report */
 const FIXED_STATUSES = [STATUS.FIXED, STATUS.DONE];
 
@@ -135,11 +141,9 @@ const OPEN_BUGS_SINCE = process.env.JIRA_OPEN_BUGS_SINCE || '2026-01-01';
 const ENHANCEMENTS_SINCE = (process.env.JIRA_ENHANCEMENTS_SINCE || '2026-01-01').trim();
 const GITHUB_PR_URL_UAT_FIELD = process.env.JIRA_GITHUB_PR_URL_UAT_FIELD || 'customfield_10649';
 
-/** New bugs raised today — To Do or Sub-task In Progress, created today */
+/** New bugs raised today — any Bug/Sub-task created today by QA reporters (any status) */
 function todayJql(extra) {
-  var jql = BASE_JQL +
-    ' AND created >= startOfDay()' +
-    ' AND status in ("' + STATUS.OPEN + '", "In Progress")';
+  var jql = BASE_JQL + ' AND created >= startOfDay()';
   if (extra) jql += ' AND ' + extra;
   return jql + ' ORDER BY created DESC';
 }
@@ -164,8 +168,15 @@ function awaitingPrDeploymentStatusesInJql() {
 }
 
 function portalOpenExtraStatusesInJql() {
-  // Status literally named "Bug" (POR), ON-HOLD, and WEB QA-Testing should still appear in defect log
-  return '"Bug", "ON-HOLD", "On Hold", "' + STATUS.QA_TESTING + '"';
+  // Status literally named "Bug" (POR), ON-HOLD, and WEB testing lanes should still appear in defect log
+  return '"Bug", "ON-HOLD", "On Hold", "' + STATUS.QA_TESTING + '", "' +
+    STATUS.BUSINESS_TESTING + '", "' + STATUS.BUSINESS_TESTING_ALT + '"';
+}
+
+/** True for WEB open/testing lane names that mirror PB/POR open pending */
+function isWebOpenStatusName(statusName) {
+  var s = String(statusName || '').replace(/[\s_\-\/]+/g, '').trim().toLowerCase();
+  return s === 'qatesting' || s === 'bussinesstesting' || s === 'businesstesting';
 }
 
 /** Today's bugs for defect log — open statuses created today, Awaiting PR Deployment statuses, Fixed/Done today, or Canceled today */
@@ -312,6 +323,7 @@ module.exports = {
   GITHUB_PR_URL_UAT_FIELD,
   projectJql,
   defaultModuleForProject,
+  isWebOpenStatusName,
   todayJql,
   openBugsJql,
   todayDefectLogJql,

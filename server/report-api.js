@@ -87,10 +87,10 @@ function normalizeStatusName(name) {
 
 function bucketForStatus(statusName) {
   var s = normalizeStatusName(statusName);
-  // Open / pending: classic open statuses + POR/PB deployment & approval lanes + held bugs
+  // Open / pending: classic open statuses + POR/PB deployment & approval lanes + WEB testing lanes
   if (
     s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' ||
-    s === 'qatesting' ||
+    s === 'qatesting' || s === 'bussinesstesting' || s === 'businesstesting' ||
     s === 'uatdeployment' || s === 'uatmergeissue' || s === 'uatprapproval' || s === 'prdprapproval' ||
     s === 'prddbdeployment' || s === 'prddeployment' || s === 'uatdbapproval'
   ) return 'open';

@@ -198,11 +198,12 @@
     padding:9px 12px;
     text-transform:uppercase;
     border-bottom:2px solid #92400e;
+    flex:0 0 auto;
   }
   .scope-panel-inner {
     padding:8px 10px;
     font-size:12.5px;
-    flex:0 0 auto;
+    flex:1 1 auto;
     display:block;
     min-height:0;
     background:#fdf3e3;
@@ -294,7 +295,7 @@
     color:#7f1d1d;
     line-height:1.4;
     background:#fef2f2;
-    flex:0 0 auto;
+    flex:1 1 auto;
     min-height:0;
     box-sizing:border-box;
     width:100%;
@@ -906,6 +907,9 @@ function onOutlookToggle(cb){
   section.setAttribute('data-outlook-include', cb.checked ? 'false' : 'true');
   section.classList.toggle('outlook-excluded', cb.checked);
   updateSectionNumbers();
+  if(section.querySelector && section.querySelector('#tbl34')){
+    syncExecSummaryFromCoverageMatrix();
+  }
   scheduleAutoSave();
 }
 
@@ -1109,7 +1113,16 @@ function bakePageOnePanelsForExport(root){
       if(inner) bodyEl = inner.querySelector('#scopeTestedToday') || inner;
     }
 
-    var panelHeight = panel.style.height || panel.getAttribute('data-export-height') || '';
+    var livePanel = panel.id ? document.getElementById(panel.id) : null;
+    var panelHeightPx = Math.round(
+      parseFloat(panel.style.height) ||
+      parseFloat(panel.style.minHeight) ||
+      parseFloat(panel.getAttribute('data-export-height')) ||
+      (livePanel && (parseFloat(livePanel.style.height) || parseFloat(livePanel.style.minHeight) || parseFloat(livePanel.getAttribute('data-export-height')))) ||
+      panel.offsetHeight ||
+      0
+    );
+    var panelHeight = panelHeightPx > 0 ? (panelHeightPx + 'px') : '';
     var bodyFontSize = bodyEl && (bodyEl.style.fontSize || bodyEl.getAttribute('data-export-font-size')) ? (bodyEl.style.fontSize || bodyEl.getAttribute('data-export-font-size')) : '12.5px';
     var bodyLineHeight = bodyEl && (bodyEl.style.lineHeight || bodyEl.getAttribute('data-export-line-height')) ? (bodyEl.style.lineHeight || bodyEl.getAttribute('data-export-line-height')) : '1.4';
 
@@ -1122,32 +1135,25 @@ function bakePageOnePanelsForExport(root){
     outer.setAttribute('data-export-panel', 'table');
     if(panel.id) outer.id = panel.id;
     outer.className = panel.className;
-    var tracker = root.querySelector('#tbl33');
-    var blockersWidthPx = 0;
-    if(isBlockers && tracker){
-      blockersWidthPx = Math.round(tracker.offsetWidth || 0);
-      if(!blockersWidthPx){
-        var liveTracker = document.getElementById('tbl33');
-        blockersWidthPx = Math.round((liveTracker && liveTracker.offsetWidth) || 0);
-      }
+    if(panelHeightPx > 0){
+      outer.setAttribute('height', String(panelHeightPx));
+      outer.setAttribute('data-export-height', String(panelHeightPx));
     }
     exportStyleTd(outer, {
       borderCollapse: 'collapse',
-      width: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
-      maxWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
-      minWidth: blockersWidthPx ? (blockersWidthPx + 'px') : '100%',
+      width: '100%',
+      maxWidth: '100%',
+      minWidth: '0',
       marginTop: '14px',
       border: isBlockers ? '2px solid #b42318' : (isAutomationModule ? '1px solid #c7d2fe' : '1px solid #e7c894'),
       backgroundColor: isBlockers ? '#fff5f5' : (isAutomationModule ? '#eef2ff' : '#fdf3e3'),
       height: panelHeight || '',
+      minHeight: panelHeight || '',
       fontFamily: 'Arial, Helvetica, sans-serif',
       tableLayout: 'fixed',
       boxSizing: 'border-box'
     });
-    if(isBlockers && blockersWidthPx){
-      outer.setAttribute('width', String(blockersWidthPx));
-      outer.setAttribute('data-export-width', String(blockersWidthPx));
-    }
+    outer.setAttribute('width', '100%');
 
     if(header){
       var trHead = document.createElement('tr');
@@ -1246,36 +1252,183 @@ function bakePageOnePanelsForExport(root){
 
     trBody.appendChild(tdBody);
     outer.appendChild(trBody);
+    if(panelHeightPx > 0) applyOutlookPanelTableHeight(outer, panelHeightPx);
     panel.parentNode.replaceChild(outer, panel);
   });
 }
 
 function bakePageOnePanelStyles(root){
   root.querySelectorAll('[data-export-panel="table"]').forEach(function(tbl){
-    tbl.style.minHeight = '';
     tbl.style.display = '';
   });
   root.querySelectorAll('#scopeTestedToday, #bugTrackerBlockers').forEach(function(el){
-    el.style.minHeight = '';
     el.style.display = '';
     el.style.flex = '';
   });
   matchBlockersWidthToTracker(root);
-  matchExportPanelHeights(root);
+  alignExportPageOneColumnBottoms(root);
 }
 
-function matchExportPanelHeights(root){
+/** Outlook/Word-friendly panel height: table + body row/cell fill remaining space */
+function applyOutlookPanelTableHeight(tbl, targetPx){
+  if(!tbl || !targetPx || targetPx <= 0) return;
+  targetPx = Math.round(targetPx);
+  tbl.setAttribute('height', String(targetPx));
+  tbl.setAttribute('data-export-height', String(targetPx));
+  tbl.style.height = targetPx + 'px';
+  tbl.style.minHeight = targetPx + 'px';
+  tbl.style.maxHeight = '';
+
+  var rows = tbl.querySelectorAll('tr');
+  var headerRow = rows[0] || null;
+  var bodyTd = tbl.querySelector('#scopeTestedToday, #bugTrackerBlockers, #moduleCovered');
+  var bodyRow = bodyTd ? bodyTd.parentNode : (rows[1] || null);
+  if(bodyRow && bodyRow.tagName !== 'TR') bodyRow = rows[1] || null;
+
+  var headerH = 0;
+  if(headerRow){
+    headerH = Math.round(headerRow.offsetHeight || 0);
+    if(!headerH){
+      var headerTd = headerRow.querySelector('td');
+      headerH = headerTd ? Math.round(headerTd.offsetHeight || 0) : 0;
+    }
+    if(!headerH) headerH = 38;
+  }
+  var bodyH = Math.max(targetPx - headerH, 20);
+  if(bodyRow){
+    bodyRow.setAttribute('height', String(bodyH));
+    bodyRow.style.height = bodyH + 'px';
+  }
+  if(bodyTd){
+    bodyTd.setAttribute('height', String(bodyH));
+    bodyTd.setAttribute('valign', 'top');
+    bodyTd.style.height = bodyH + 'px';
+    bodyTd.style.minHeight = bodyH + 'px';
+    bodyTd.style.verticalAlign = 'top';
+  }
+}
+
+/** Stretch the shorter Scope/Blockers panel so both page-one columns end at the same bottom */
+function alignExportPageOneColumnBottoms(root){
   var scope = root.querySelector('#scopePanel, table.scope-panel');
   var blockers = root.querySelector('#blockersPanel, table.blockers-panel');
   if(!scope || !blockers) return;
-  var h1 = parseFloat(scope.style.height) || parseFloat(scope.getAttribute('height')) || scope.offsetHeight || 0;
-  var h2 = parseFloat(blockers.style.height) || parseFloat(blockers.getAttribute('height')) || blockers.offsetHeight || 0;
-  var target = Math.max(h1, h2);
-  if(!target) return;
-  [scope, blockers].forEach(function(tbl){
-    tbl.style.height = target + 'px';
-    tbl.setAttribute('height', Math.round(target));
+
+  void scope.offsetHeight;
+  var delta = Math.round(scope.getBoundingClientRect().bottom - blockers.getBoundingClientRect().bottom);
+  if(delta > 1){
+    applyOutlookPanelTableHeight(blockers, blockers.offsetHeight + delta);
+  } else if(delta < -1){
+    applyOutlookPanelTableHeight(scope, scope.offsetHeight - delta);
+  } else {
+    applyOutlookPanelTableHeight(scope, scope.offsetHeight || parseFloat(scope.getAttribute('data-export-height')) || 0);
+    applyOutlookPanelTableHeight(blockers, blockers.offsetHeight || parseFloat(blockers.getAttribute('data-export-height')) || 0);
+  }
+}
+
+/** Outlook paste: drop forced equal-height / px widths that become empty pink/beige boxes */
+function compactOutlookPageOnePanels(root){
+  if(!root) return;
+  root.querySelectorAll('#scopePanel, #blockersPanel, table.scope-panel, table.blockers-panel').forEach(function(tbl){
+    tbl.removeAttribute('height');
+    tbl.removeAttribute('data-export-height');
+    tbl.removeAttribute('data-export-width');
+    tbl.setAttribute('width', '100%');
+    tbl.style.height = '';
+    tbl.style.minHeight = '';
+    tbl.style.maxHeight = '';
+    tbl.style.width = '100%';
+    tbl.style.maxWidth = '100%';
+    tbl.style.minWidth = '';
+    tbl.style.tableLayout = 'fixed';
+    [].forEach.call(tbl.rows || [], function(tr){
+      tr.removeAttribute('height');
+      tr.style.height = '';
+      tr.style.minHeight = '';
+      [].forEach.call(tr.cells || [], function(td){
+        td.removeAttribute('height');
+        td.style.height = '';
+        td.style.minHeight = '';
+        td.style.maxHeight = '';
+        td.setAttribute('valign', 'top');
+        td.style.verticalAlign = 'top';
+        td.style.width = '100%';
+        td.style.maxWidth = '100%';
+      });
+    });
   });
+}
+
+/**
+ * Rebuild page-one as an Outlook-safe 2-column table.
+ * Fixed attributes + inline styles only (Outlook Web strips &lt;style&gt; on paste).
+ */
+function rebuildOutlookPageOneTwoCol(root){
+  if(!root) return;
+  var grid = root.querySelector('.report-two-col');
+  if(!grid) return;
+  var row = grid.rows && grid.rows[0];
+  if(!row || row.cells.length < 3) return;
+
+  var leftHtml = row.cells[0].innerHTML;
+  var rightHtml = row.cells[2].innerHTML;
+  var rebuilt = document.createElement('table');
+  rebuilt.setAttribute('role', 'presentation');
+  rebuilt.setAttribute('width', '940');
+  rebuilt.setAttribute('cellpadding', '0');
+  rebuilt.setAttribute('cellspacing', '0');
+  rebuilt.setAttribute('border', '0');
+  rebuilt.className = 'report-two-col';
+  rebuilt.setAttribute('data-outlook-twocol', '1');
+  rebuilt.style.cssText = 'border-collapse:collapse;width:940px;max-width:940px;margin-top:20px;table-layout:fixed;';
+
+  var cg = document.createElement('colgroup');
+  ['460', '20', '460'].forEach(function(w){
+    var col = document.createElement('col');
+    col.setAttribute('width', w);
+    col.style.width = w + 'px';
+    cg.appendChild(col);
+  });
+  rebuilt.appendChild(cg);
+
+  var tr = document.createElement('tr');
+  var tdLeft = document.createElement('td');
+  tdLeft.setAttribute('width', '460');
+  tdLeft.setAttribute('valign', 'top');
+  tdLeft.style.cssText = 'width:460px;max-width:460px;vertical-align:top;padding:0;';
+  tdLeft.innerHTML = leftHtml;
+
+  var tdGap = document.createElement('td');
+  tdGap.setAttribute('width', '20');
+  tdGap.style.cssText = 'width:20px;max-width:20px;padding:0;font-size:0;line-height:0;';
+  tdGap.innerHTML = '&nbsp;';
+
+  var tdRight = document.createElement('td');
+  tdRight.setAttribute('width', '460');
+  tdRight.setAttribute('valign', 'top');
+  tdRight.style.cssText = 'width:460px;max-width:460px;vertical-align:top;padding:0;';
+  tdRight.innerHTML = rightHtml;
+
+  tr.appendChild(tdLeft);
+  tr.appendChild(tdGap);
+  tr.appendChild(tdRight);
+  rebuilt.appendChild(tr);
+  grid.parentNode.replaceChild(rebuilt, grid);
+
+  // Force inner tables in each column to fill the 460px column
+  [tdLeft, tdRight].forEach(function(col){
+    col.querySelectorAll('table').forEach(function(tbl){
+      tbl.setAttribute('width', '460');
+      tbl.style.width = '460px';
+      tbl.style.maxWidth = '460px';
+      tbl.style.minWidth = '0';
+      tbl.style.tableLayout = 'fixed';
+    });
+  });
+}
+
+function matchExportPanelHeights(root){
+  alignExportPageOneColumnBottoms(root);
 }
 
 function matchBlockersWidthToTracker(root){
@@ -1379,13 +1532,6 @@ function repairOutlookPageOnePanels(root){
 
   flattenOutlookBlockersPanel(blockers);
 
-  var liveScope = document.getElementById('scopePanel');
-  var liveBlockers = document.getElementById('blockersPanel');
-  var scopeH = parseFloat(liveScope && liveScope.getAttribute('data-export-height')) || parseFloat(scope.style.height) || scope.offsetHeight || 0;
-  var blockersH = parseFloat(liveBlockers && liveBlockers.getAttribute('data-export-height')) || parseFloat(blockers.style.height) || blockers.offsetHeight || 0;
-  var target = Math.max(scopeH, blockersH);
-  if(!target) return;
-
   var scopeContent = scope.querySelector('#scopeTestedToday');
   var blockersContent = blockers.querySelector('#bugTrackerBlockers');
   var liveScopeEl = document.getElementById('scopeTestedToday');
@@ -1410,8 +1556,6 @@ function repairOutlookPageOnePanels(root){
       wordBreak: 'break-word'
     });
     scopeContent.innerHTML = renderScopeForExport(liveScopeEl, true, liveScopeEl);
-    scopeContent.removeAttribute('height');
-    scopeContent.style.height = '';
   }
   if(blockersContent && liveBlockersEl){
     var blockersStyle = getLivePanelTextStyle(liveBlockersEl, '12.5px', '1.45');
@@ -1432,27 +1576,20 @@ function repairOutlookPageOnePanels(root){
       wordBreak: 'break-word'
     });
     blockersContent.innerHTML = renderBlockersForExport(liveBlockersEl, true);
-    blockersContent.removeAttribute('height');
-    blockersContent.style.height = '';
   }
 
+  // Outlook/Word ignores equal-height stretch and turns it into huge empty boxes — keep content-sized.
+  compactOutlookPageOnePanels(root);
+
   [scope, blockers].forEach(function(tbl){
-    tbl.setAttribute('height', Math.round(target));
-    tbl.style.height = Math.round(target) + 'px';
+    tbl.setAttribute('width', '100%');
     tbl.style.width = '100%';
+    tbl.style.maxWidth = '100%';
+    tbl.style.minWidth = '';
     tbl.style.borderCollapse = 'collapse';
     tbl.style.fontFamily = 'Arial, Helvetica, sans-serif';
-    tbl.querySelectorAll('tr').forEach(function(tr){
-      tr.removeAttribute('height');
-      tr.style.height = '';
-    });
-    tbl.querySelectorAll('td').forEach(function(td){
-      if(td.id === 'scopeTestedToday' || td.id === 'bugTrackerBlockers') return;
-      td.removeAttribute('height');
-      if(td.style.height && td.querySelector('#scopeTestedToday, #bugTrackerBlockers')) td.style.height = '';
-    });
+    tbl.style.tableLayout = 'fixed';
   });
-  matchBlockersWidthToTracker(root);
 }
 
 function finalizeOutlookPageOnePanels(root){
@@ -1771,17 +1908,28 @@ function lockOutlookPageOneTableWidths(root){
     grid.style.maxWidth = '100%';
     grid.style.minWidth = '';
     grid.style.tableLayout = 'fixed';
-    ensureOutlookColgroup(grid, ['49.5%', '1%', '49.5%']);
-    [].forEach.call(grid.rows, function(row){
-      if(!row || row.cells.length < 3) return;
-      setOutlookCellWidth(row.cells[0], '49.5%');
-      setOutlookCellWidth(row.cells[1], '1%');
-      setOutlookCellWidth(row.cells[2], '49.5%');
-      row.cells[0].setAttribute('valign', 'top');
-      row.cells[2].setAttribute('valign', 'top');
-      row.cells[0].style.verticalAlign = 'top';
-      row.cells[2].style.verticalAlign = 'top';
-    });
+    var stacked = grid.classList.contains('report-outlook-stack') || (grid.rows[0] && grid.rows[0].cells.length === 1);
+    if(stacked){
+      ensureOutlookColgroup(grid, ['100%']);
+      [].forEach.call(grid.rows, function(row){
+        if(!row || !row.cells[0]) return;
+        setOutlookCellWidth(row.cells[0], '100%');
+        row.cells[0].setAttribute('valign', 'top');
+        row.cells[0].style.verticalAlign = 'top';
+      });
+    } else {
+      ensureOutlookColgroup(grid, ['49.5%', '1%', '49.5%']);
+      [].forEach.call(grid.rows, function(row){
+        if(!row || row.cells.length < 3) return;
+        setOutlookCellWidth(row.cells[0], '49.5%');
+        setOutlookCellWidth(row.cells[1], '1%');
+        setOutlookCellWidth(row.cells[2], '49.5%');
+        row.cells[0].setAttribute('valign', 'top');
+        row.cells[2].setAttribute('valign', 'top');
+        row.cells[0].style.verticalAlign = 'top';
+        row.cells[2].style.verticalAlign = 'top';
+      });
+    }
   }
   lockOutlookInnerTablePercent(root.querySelector('#tblExecSummary'), ['75%', '25%']);
   lockOutlookInnerTablePercent(root.querySelector('#tbl33'), ['32%', '12%', '56%']);
@@ -1830,6 +1978,8 @@ function lockOutlookFullWidthTables(root){
 function stripOutlookRigidWidths(root){
   if(!root) return;
   root.querySelectorAll('[style]').forEach(function(el){
+    // Keep the rebuilt page-one 2-col + its column tables at fixed px (Outlook needs them)
+    if(el.closest && (el.closest('[data-outlook-twocol="1"]') || el.getAttribute('data-outlook-twocol') === '1')) return;
     var style = el.getAttribute('style') || '';
     style = style.replace(/min-width\s*:\s*[^;]+;?/gi, '');
     if(el.tagName === 'TABLE'){
@@ -1838,6 +1988,7 @@ function stripOutlookRigidWidths(root){
     el.setAttribute('style', style.replace(/;;+/g, ';').replace(/^;+|;+$/g, ''));
   });
   root.querySelectorAll('table[width]').forEach(function(tbl){
+    if(tbl.closest && (tbl.closest('[data-outlook-twocol="1"]') || tbl.getAttribute('data-outlook-twocol') === '1')) return;
     var w = tbl.getAttribute('width');
     if(w && /^\d+$/.test(String(w)) && parseInt(w, 10) >= 400){
       tbl.setAttribute('width', '100%');
@@ -1940,7 +2091,8 @@ function copyForOutlook(){
   var holder = attachCloneForMeasure(clone);
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
-  lockOutlookPageOneTableWidths(clone);
+  compactOutlookPageOnePanels(clone);
+  rebuildOutlookPageOneTwoCol(clone);
   lockOutlookFullWidthTables(clone);
   stripOutlookRigidWidths(clone);
   bakeReproStepsForExport(clone, true);
@@ -1948,6 +2100,34 @@ function copyForOutlook(){
   sanitizeOutlookTableCells(clone);
   applyOutlookFontSizes(clone);
   stripOutlookSpacerNoise(clone);
+  compactOutlookPageOnePanels(clone);
+  // Re-assert 2-col widths after compact so Outlook keeps side-by-side columns
+  var twocol = clone.querySelector('[data-outlook-twocol="1"]');
+  if(twocol){
+    twocol.setAttribute('width', '940');
+    twocol.style.width = '940px';
+    twocol.style.maxWidth = '940px';
+    if(twocol.rows[0] && twocol.rows[0].cells.length >= 3){
+      twocol.rows[0].cells[0].setAttribute('width', '460');
+      twocol.rows[0].cells[0].style.width = '460px';
+      twocol.rows[0].cells[1].setAttribute('width', '20');
+      twocol.rows[0].cells[1].style.width = '20px';
+      twocol.rows[0].cells[2].setAttribute('width', '460');
+      twocol.rows[0].cells[2].style.width = '460px';
+      [twocol.rows[0].cells[0], twocol.rows[0].cells[2]].forEach(function(col){
+        col.querySelectorAll('table').forEach(function(tbl){
+          if(tbl.classList && tbl.classList.contains('blocker-point')) return;
+          if(tbl.classList && tbl.classList.contains('scope-point')) return;
+          tbl.setAttribute('width', '460');
+          tbl.style.width = '460px';
+          tbl.style.maxWidth = '460px';
+        });
+      });
+    }
+  }
+  lockOutlookInnerTablePercent(clone.querySelector('#tblExecSummary'), ['75%', '25%']);
+  lockOutlookInnerTablePercent(clone.querySelector('#tbl33'), ['32%', '12%', '56%']);
+  wrapOutlookTrackerIdLinks(clone);
   var html = wrapOutlookHtml(clone.outerHTML);
   var plain = clone.innerText || clone.textContent || '';
 
@@ -2229,11 +2409,13 @@ function copyForTeams(){
   var holder = attachCloneForMeasure(clone);
   repairOutlookPageOnePanels(clone);
   applyLivePageOneFontsToOutlookClone(clone);
+  alignExportPageOneColumnBottoms(clone);
   matchBlockersWidthToTracker(clone);
   bakeReproStepsForExport(clone, true);
   bakeDefectCellColorsForExport(clone);
   sanitizeOutlookTableCells(clone);
   prepareCloneForTeams(clone);
+  alignExportPageOneColumnBottoms(clone);
   var html = wrapTeamsHtml(clone.outerHTML);
   var plain = clone.innerText || clone.textContent || '';
 
@@ -2293,7 +2475,7 @@ function getExportPrintStyles(){
     '#bugTrackerBlockers{background:#fef2f2!important;color:#7f1d1d!important;border-left:none!important;width:100%!important;max-width:100%!important;}',
     '.blocker-point{margin-bottom:6px!important;width:100%!important;max-width:100%!important;}',
     '.blocker-point:last-child{margin-bottom:0!important;}',
-    '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
+    '.blocker-bullet-cell{color:#dc2626!important;font-weight:700!important;vertical-align:top!important;white-space:nowrap!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
     '#tblExecSummary{margin-bottom:0!important;}',
     '#tblExecSummary + .scope-panel,#tbl33 + .blockers-panel,#tblExecSummary + table.scope-panel,#tbl33 + table.blockers-panel{margin-top:14px!important;}',
@@ -2353,7 +2535,7 @@ function getOutlookExportStyles(){
     '#bugTrackerBlockers{background:#fef2f2!important;color:#7f1d1d!important;border-left:none!important;width:100%!important;max-width:100%!important;}',
     '.blocker-point{margin-bottom:6px!important;width:100%!important;max-width:100%!important;}',
     '.blocker-point:last-child{margin-bottom:0!important;}',
-    '.blocker-stripe,.blocker-stripe td{background-color:#e87070!important;}',
+    '.blocker-bullet-cell{color:#dc2626!important;font-weight:700!important;vertical-align:top!important;white-space:nowrap!important;}',
     '.blocker-text{color:#7f1d1d!important;white-space:pre-wrap!important;word-wrap:break-word!important;overflow-wrap:break-word!important;word-break:break-word!important;max-width:100%!important;}',
     '#tblExecSummary,#scopePanel,table.scope-panel{margin-bottom:0!important;width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:12pt!important;}',
     '#tblExecSummary td,#tblExecSummary th{font-size:12pt!important;}',
@@ -2602,21 +2784,62 @@ function addRow(tableId){
   rows[rows.length - 1].parentNode.appendChild(clone);
   var last = clone.querySelector('td,th');
   if(last) last.focus();
+  if(tableId === 'tblAutomation') scheduleSyncModuleCoveredFromAutomation();
+  if(tableId === 'tbl34') scheduleSyncExecSummaryFromCoverageMatrix();
   scheduleAutoSave();
 }
 
+var lastSelectedTableRow = null;
+var lastSelectedTableId = '';
+
+function rememberSelectedTableRow(row, tableId){
+  if(!row || !row.parentNode){
+    lastSelectedTableRow = null;
+    lastSelectedTableId = '';
+    return;
+  }
+  lastSelectedTableRow = row;
+  lastSelectedTableId = tableId || (row.closest && row.closest('table') && row.closest('table').id) || '';
+}
+
 function getSelectedTableRow(tableId){
-  var sel = window.getSelection();
-  if(!sel || !sel.rangeCount) return null;
-  var node = sel.anchorNode;
-  if(!node) return null;
-  if(node.nodeType === 3) node = node.parentNode;
-  var cell = node.closest ? node.closest('td,th') : null;
-  if(!cell) return null;
-  var row = cell.closest ? cell.closest('tr') : null;
   var table = document.getElementById(tableId);
-  if(!row || !table || !table.contains(row)) return null;
-  return row;
+  if(!table) return null;
+
+  // Prefer live selection / focus (while still inside the cell)
+  var sel = window.getSelection();
+  if(sel && sel.rangeCount){
+    var node = sel.anchorNode;
+    if(node){
+      if(node.nodeType === 3) node = node.parentNode;
+      var cell = node.closest ? node.closest('td,th') : null;
+      var row = cell && cell.closest ? cell.closest('tr') : null;
+      if(row && table.contains(row)){
+        rememberSelectedTableRow(row, tableId);
+        return row;
+      }
+    }
+  }
+  var active = document.activeElement;
+  if(active && active.closest){
+    var activeCell = active.closest('td,th');
+    var activeRow = activeCell && activeCell.closest('tr');
+    if(activeRow && table.contains(activeRow)){
+      rememberSelectedTableRow(activeRow, tableId);
+      return activeRow;
+    }
+  }
+
+  // Clicking "Remove row" blurs the cell — use the last focused row in this table
+  if(
+    lastSelectedTableRow &&
+    lastSelectedTableRow.parentNode &&
+    table.contains(lastSelectedTableRow) &&
+    (!lastSelectedTableId || lastSelectedTableId === tableId)
+  ){
+    return lastSelectedTableRow;
+  }
+  return null;
 }
 
 function isPlaceholderRow(row){
@@ -2635,19 +2858,19 @@ function isRemovableDataRow(table, row){
 function removeRow(tableId){
   var table = document.getElementById(tableId);
   if(!table) return;
-  var rows = table.querySelectorAll('tr');
   var target = getSelectedTableRow(tableId);
-  if(!target || !isRemovableDataRow(table, target)){
-    for(var i = rows.length - 1; i >= 1; i--){
-      if(isRemovableDataRow(table, rows[i])){ target = rows[i]; break; }
-    }
-  }
   if(!target || !isRemovableDataRow(table, target)){
     showToast('Click inside the row you want to remove, then press Remove row.');
     return;
   }
+  if(lastSelectedTableRow === target){
+    lastSelectedTableRow = null;
+    lastSelectedTableId = '';
+  }
   target.remove();
   showToast('Row removed.');
+  if(tableId === 'tblAutomation') scheduleSyncModuleCoveredFromAutomation();
+  if(tableId === 'tbl34') scheduleSyncExecSummaryFromCoverageMatrix();
   scheduleAutoSave();
 }
 
@@ -3169,7 +3392,7 @@ var TRACKER_SYNC_STATUS = {
   new: 'Open',
   open: 'Open',
   verified: 'Verified',
-  retest: 'In retest',
+  retest: 'Open',
   fixed: 'Fixed',
   parked: 'Canceled',
   regression: 'Bug/Issue'
@@ -3209,10 +3432,62 @@ function getIssueSyncSource(key){
   return '';
 }
 
+function lookupIssueInMap(map, key){
+  if(!map || !key) return null;
+  if(map[key]) return map[key];
+  var norm = normalizeIssueKey(key);
+  if(norm && map[norm]) return map[norm];
+  if(norm){
+    var upper = norm.toUpperCase();
+    if(map[upper]) return map[upper];
+    var lower = norm.toLowerCase();
+    if(map[lower]) return map[lower];
+  }
+  return null;
+}
+
+function indexIssueInMap(map, issue){
+  if(!map || !issue || !issue.key) return;
+  map[issue.key] = issue;
+  var norm = normalizeIssueKey(issue.key);
+  if(norm){
+    map[norm] = issue;
+    map[norm.toUpperCase()] = issue;
+  }
+}
+
 function getIssueMeta(key){
-  if(activeBugSyncSource === 'ado') return lastAdoIssueMap[key] || null;
-  if(activeBugSyncSource === 'jira') return lastJiraIssueMap[key] || null;
-  return lastJiraIssueMap[key] || lastAdoIssueMap[key] || null;
+  if(activeBugSyncSource === 'ado') return lookupIssueInMap(lastAdoIssueMap, key);
+  if(activeBugSyncSource === 'jira') return lookupIssueInMap(lastJiraIssueMap, key);
+  return lookupIssueInMap(lastJiraIssueMap, key) || lookupIssueInMap(lastAdoIssueMap, key);
+}
+
+function isQaReportedJiraIssue(issue){
+  if(!issue) return false;
+  var reporter = String(issue.reporter || '').replace(/\u00a0/g, ' ').trim().toLowerCase();
+  if(!reporter) return true; // unknown — keep until a fresh sync can decide
+  return reporter === 'kashan altaf' || reporter === 'munawar gul';
+}
+
+function hydrateIssueMapsFromPersistent(){
+  try {
+    var jiraMap = loadPersistentOpenBugs(JIRA_OPEN_BUGS_KEY);
+    var cleaned = {};
+    Object.keys(jiraMap || {}).forEach(function(key){
+      var issue = jiraMap[key];
+      // Drop assignee-only leftovers (e.g. WEB-94 reported by someone else)
+      if(!isQaReportedJiraIssue(issue)) return;
+      cleaned[key] = issue;
+      indexIssueInMap(lastJiraIssueMap, issue);
+    });
+    savePersistentOpenBugs(JIRA_OPEN_BUGS_KEY, cleaned);
+  } catch(e){}
+  try {
+    var adoMap = loadPersistentOpenBugs(ADO_OPEN_BUGS_KEY);
+    Object.keys(adoMap || {}).forEach(function(key){
+      indexIssueInMap(lastAdoIssueMap, adoMap[key]);
+    });
+  } catch(e){}
 }
 
 function setIssueIdColumnHeadings(source){
@@ -3312,7 +3587,7 @@ function filterReportIssues(issues, syncSource){
 function issuesToKeyMap(issues){
   var map = {};
   (issues || []).forEach(function(issue){
-    if(issue && issue.key) map[issue.key] = issue;
+    indexIssueInMap(map, issue);
   });
   return map;
 }
@@ -3375,19 +3650,23 @@ function mergeIssuesWithPersistent(defectLogIssues, syncSource, freshByKey){
   var map = loadPersistentOpenBugs(storageKey);
   if(freshByKey){
     Object.keys(map).forEach(function(key){
-      if(!freshByKey[key]) delete map[key];
+      if(!lookupIssueInMap(freshByKey, key)) delete map[key];
     });
     Object.keys(freshByKey).forEach(function(key){
-      map[key] = freshByKey[key];
+      var issue = freshByKey[key];
+      if(issue) map[issue.key || key] = issue;
     });
   }
   (defectLogIssues || []).forEach(function(issue){
-    if(isDefectLogEligible(issue)) map[issue.key] = issue;
+    if(isDefectLogEligible(issue) && (syncSource !== 'jira' || isQaReportedJiraIssue(issue))){
+      map[issue.key] = issue;
+    }
   });
   Object.keys(map).forEach(function(key){
     var issue = map[key];
     if(issue && issue.fixedToday && !isIssueDateToday(issue)) delete issue.fixedToday;
     if(!isDefectLogEligible(map[key])) delete map[key];
+    else if(syncSource === 'jira' && !isQaReportedJiraIssue(map[key])) delete map[key];
   });
   savePersistentOpenBugs(storageKey, map);
   return map;
@@ -3455,8 +3734,9 @@ function fillTrackerRowByLabel(label, issues){
 function isOpenJiraStatusName(s){
   // In Progress is the Sub-task equivalent of open / pending.
   // POR often uses a status literally named "Bug"; ON-HOLD stays visible as open/parked work.
-  // WEB board uses QA-Testing as an open / pending lane.
-  return s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' || s === 'qatesting';
+  // WEB board uses QA-Testing / Bussiness-Testing as open / pending (same as PB/POR To Do).
+  return s === 'todo' || s === 'bugissue' || s === 'bug' || s === 'inprogress' || s === 'onhold' ||
+    s === 'qatesting' || s === 'bussinesstesting' || s === 'businesstesting';
 }
 
 function hasAttachedPr(issue){
@@ -3539,7 +3819,10 @@ function formatStatusLabel(status, issue){
   if(s === 'canceled' || s === 'cancelled' || /^cancel(?:ed|led)?$/i.test(String(status || '').trim())) return 'Canceled';
   if(s === 'fixed' || /^fixed$/i.test(String(status || '').trim())) return 'Fixed';
   if(s === 'open' || /^open$/i.test(String(status || '').trim())) return 'Open';
-  if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim())) return 'Open';
+  // UAT-Testing / In retest — show as Open in the defect log
+  if(s === 'uattesting' || /^in[\s-]?retest$/i.test(String(status || '').trim()) || /^uat[\s-]?testing$/i.test(String(status || '').trim())){
+    return 'Open';
+  }
   var label = String(status || '').trim();
   if(/^to[\s-]?do$/i.test(label)) return 'Open';
   if(/^bug\s*\/\s*issue$/i.test(label)) return 'Open';
@@ -3724,11 +4007,12 @@ function capitalizeSentence(text){
 }
 
 function excludeTodayFromOpen(openIssues, todayIssues){
+  // Created today stays on "New bugs raised today"; next day it moves to Open / Pending.
   var newRowKeys = {};
   (todayIssues || []).forEach(function(issue){
-    if(normalizeJiraStatusName(issue.status) === 'todo') newRowKeys[issue.key] = true;
+    if(issue && issue.key) newRowKeys[issue.key] = true;
   });
-  return (openIssues || []).filter(function(issue){ return !newRowKeys[issue.key]; });
+  return (openIssues || []).filter(function(issue){ return !(issue && issue.key && newRowKeys[issue.key]); });
 }
 
 function priorityToSeverity(priority){
@@ -3782,12 +4066,15 @@ function applyStatusCellStyle(cell, status, issue){
     bg = '#fff3cd'; color = '#7a5c00';
   } else if(labelKey === 'awaitingprdeployment' || isAwaitingPrDeploymentStatusName(s) || isAwaitingPrDeployment(issue)){
     bg = '#fff3cd'; color = '#7a5c00';
-  } else if(isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' || labelKey === 'open'){
-    bg = '#cfe2ff'; color = '#0d3d7a';
   } else if(s === 'createprdpr' || s === 'done' || statusKey === 'fixed' || statusKey === 'done' || labelKey === 'fixed'){
     bg = '#c8e6c9'; color = '#1b5e20';
-  } else if(labelKey === 'inretest' || s === 'uattesting' || /retest|verify|uat/.test(statusKey)){
-    bg = '#fff3cd'; color = '#7a5c00';
+  } else if(
+    isOpenJiraStatusName(s) || isOpenJiraStatusName(statusKey) || s === 'open' || s === 'improvement' ||
+    labelKey === 'open' || s === 'uattesting' || labelKey === 'inretest' ||
+    /retest|verify|uat/.test(statusKey) || /retest|verify|uat/.test(labelKey)
+  ){
+    // Open + UAT-Testing / In retest both display as Open (blue)
+    bg = '#cfe2ff'; color = '#0d3d7a';
   } else if(s === 'canceled' || s === 'cancelled' || labelKey === 'canceled' || labelKey === 'cancelled'){
     bg = '#e5e7eb'; color = '#374151';
   }
@@ -4155,7 +4442,7 @@ function setPrCellContent(cell, issue){
 }
 
 function updateDefectRowFromIssue(row, issue, source){
-  var parsed = parseSummaryModule(issue.summary || '');
+  var parsed = parseSummaryModule(issue.rawSummary || issue.summary || '');
   setJiraCellContent(row.cells[0], { key: issue.key, text: issue.key, url: issue.url });
   setPrCellContent(row.cells[1], issue);
   if(row.cells[2]){
@@ -4303,8 +4590,14 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
     var placeholderRow = rows[rows.length - 1];
 
     for(var i = 1; i < rows.length - 1; i++){
-      if(rows[i].getAttribute('data-tracker-sync') === 'true' || rows[i].getAttribute('data-issue-sync-source') === syncSource){
-        rows[i].remove();
+      var oldRow = rows[i];
+      var oldSource = oldRow.getAttribute('data-issue-sync-source') || getIssueSyncSource(getDefectLogJiraKey(oldRow));
+      var tagged = oldRow.getAttribute('data-tracker-sync') === 'true' || oldSource === syncSource;
+      // Also drop leftover Jira rows from older drafts (e.g. assignee-only WEB-94) even if untagged
+      var oldKey = getDefectLogJiraKey(oldRow);
+      var leftoverJira = syncSource === 'jira' && normalizeJiraKey(oldKey) && oldSource !== 'ado';
+      if(tagged || leftoverJira){
+        oldRow.remove();
       }
     }
 
@@ -4316,6 +4609,7 @@ function syncDefectLogFromIssueMap(issueMap, syncSource){
     Object.keys(issueMap).forEach(function(k){
       var iss = issueMap[k];
       if((iss.source || syncSource) !== syncSource) return;
+      if(syncSource === 'jira' && !isQaReportedJiraIssue(iss)) return;
       if(!isDefectLogEligible(iss)) return;
       var key = normalizeIssueKey(iss.key);
       if(!key || seen[key.toUpperCase()]) return;
@@ -4455,8 +4749,11 @@ function applyJiraPayload(payload){
     if(!isReportExcludedJiraIssue(defectMap[key])) trackerMap[key] = defectMap[key];
   });
   fixedTodayIssues.forEach(function(issue){ trackerMap[issue.key] = issue; });
-  lastJiraIssueMap = trackerMap;
-  applySyncDataToTracker(trackerMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
+  lastJiraIssueMap = {};
+  Object.keys(trackerMap || {}).forEach(function(key){
+    indexIssueInMap(lastJiraIssueMap, trackerMap[key]);
+  });
+  applySyncDataToTracker(lastJiraIssueMap, todayIssues, 'jira', fixedTodayIssues, openIssues, canceledTodayIssues, regressionIssues);
   removeIssueKeysFromOpenTrackerRow(Object.keys(serverFixedTodayKeys));
   syncDefectLogFromIssueMap(defectMap, 'jira');
   var verifiedExcludedSet = {};
@@ -4827,6 +5124,153 @@ function setSummaryMetric(label, value, key){
   setSummaryMetricValue(row.cells[1], value);
 }
 
+function isCoverageMatrixOutlookExcluded(){
+  var table = document.getElementById('tbl34');
+  if(!table) return false;
+  var section = table.closest ? table.closest('.report-section') : null;
+  if(!section) return false;
+  return section.getAttribute('data-outlook-include') === 'false';
+}
+
+function parseCoverageMatrixNumber(text){
+  var t = String(text || '').replace(/\u00a0/g, ' ').replace(/,/g, '').trim();
+  if(!t || t === '\u2014' || t === '-' || t === '\u2013') return 0;
+  if(/^\[/.test(t)) return 0;
+  var m = t.match(/-?\d+(?:\.\d+)?/);
+  if(!m) return 0;
+  var n = Number(m[0]);
+  return isFinite(n) ? n : 0;
+}
+
+function isCoverageMatrixPlaceholderRow(row){
+  if(!row || !row.cells || !row.cells[0]) return true;
+  var name = String(row.cells[0].textContent || '').replace(/\u00a0/g, ' ').trim();
+  if(!name || name === '\u2014' || name === '-') return true;
+  if(/^\[add service\]$/i.test(name)) return true;
+  return false;
+}
+
+function collectCoverageMatrixTotals(){
+  var table = document.getElementById('tbl34');
+  var totals = { testCases: 0, passed: 0, failed: 0, blocked: 0, rows: 0 };
+  if(!table) return totals;
+  for(var r = 1; r < table.rows.length; r++){
+    var row = table.rows[r];
+    if(isCoverageMatrixPlaceholderRow(row)) continue;
+    // cols: 0 Module, 1 Sub, 2 Role, 3 Test Cases, 4 Passed, 5 Failed, 6 Blocked, 7 Status
+    if(row.cells.length < 7) continue;
+    totals.testCases += parseCoverageMatrixNumber(row.cells[3] && row.cells[3].textContent);
+    totals.passed += parseCoverageMatrixNumber(row.cells[4] && row.cells[4].textContent);
+    totals.failed += parseCoverageMatrixNumber(row.cells[5] && row.cells[5].textContent);
+    totals.blocked += parseCoverageMatrixNumber(row.cells[6] && row.cells[6].textContent);
+    totals.rows += 1;
+  }
+  return totals;
+}
+
+function formatSummaryPercent(numerator, denominator){
+  if(!denominator || denominator <= 0) return '\u2014';
+  var pct = (Number(numerator) || 0) * 100 / denominator;
+  if(!isFinite(pct)) return '\u2014';
+  var rounded = Math.round(pct * 10) / 10;
+  if(Math.abs(rounded - Math.round(rounded)) < 0.05) return String(Math.round(rounded)) + ' %';
+  return String(rounded) + ' %';
+}
+
+function getSummaryMetricNumber(key){
+  var cell = getSummaryMetricCell(key);
+  if(!cell) return 0;
+  return parseCoverageMatrixNumber(cell.textContent);
+}
+
+/** Recalc Coverage % / Pass rate % (and Not yet executed) from current summary values */
+function recalculateExecSummaryDerivedMetrics(){
+  repairSummaryMetricRows();
+  if(isCoverageMatrixOutlookExcluded()) return;
+
+  var total = getSummaryMetricNumber('totalInScope');
+  var executedToday = getSummaryMetricNumber('executedToday');
+  var cumulative = getSummaryMetricNumber('cumulativeExecuted');
+  var passed = getSummaryMetricNumber('passed');
+  var failed = getSummaryMetricNumber('failed');
+  var blocked = getSummaryMetricNumber('blocked');
+  var notApplicable = getSummaryMetricNumber('notApplicable');
+
+  var executed = cumulative > 0 ? cumulative : executedToday;
+  var outcomeSum = passed + failed + blocked + notApplicable;
+  if(executed <= 0 && outcomeSum > 0) executed = outcomeSum;
+
+  setSummaryMetric('Not yet executed', Math.max(0, total - executed), 'notExecuted');
+  setSummaryMetric('Coverage % (executed / total \u00d7 100)', formatSummaryPercent(executed, total), 'coveragePct');
+  setSummaryMetric('Pass rate % (passed / executed \u00d7 100)', formatSummaryPercent(passed, executed), 'passRatePct');
+}
+
+var syncExecSummaryTimer = null;
+var recalcExecSummaryTimer = null;
+var syncingExecSummaryMetrics = false;
+
+function syncExecSummaryFromCoverageMatrix(){
+  repairSummaryMetricRows();
+  if(isCoverageMatrixOutlookExcluded()){
+    syncingExecSummaryMetrics = true;
+    try {
+      [
+        'totalInScope', 'executedToday', 'cumulativeExecuted',
+        'passed', 'failed', 'blocked', 'notApplicable', 'notExecuted',
+        'coveragePct', 'passRatePct'
+      ].forEach(function(key){
+        setSummaryMetric('', '\u2014', key);
+      });
+    } finally {
+      syncingExecSummaryMetrics = false;
+    }
+    return;
+  }
+
+  var totals = collectCoverageMatrixTotals();
+  var total = totals.testCases;
+  var passed = totals.passed;
+  var failed = totals.failed;
+  var blocked = totals.blocked;
+  var executed = passed + failed + blocked;
+  // If Test Cases is filled but outcome cols are empty, treat Test Cases as executed count
+  if(executed <= 0 && total > 0) executed = total;
+  var notExecuted = Math.max(0, total - executed);
+
+  syncingExecSummaryMetrics = true;
+  try {
+    setSummaryMetric('Total test cases in scope (this cycle)', total, 'totalInScope');
+    setSummaryMetric('Test cases executed today', executed, 'executedToday');
+    setSummaryMetric('Cumulative executed (this cycle)', executed, 'cumulativeExecuted');
+    setSummaryMetric('Passed', passed, 'passed');
+    setSummaryMetric('Failed', failed, 'failed');
+    setSummaryMetric('Blocked', blocked, 'blocked');
+    setSummaryMetric('Not Applicable', 0, 'notApplicable');
+    setSummaryMetric('Not yet executed', notExecuted, 'notExecuted');
+    setSummaryMetric('Coverage % (executed / total \u00d7 100)', formatSummaryPercent(executed, total), 'coveragePct');
+    setSummaryMetric('Pass rate % (passed / executed \u00d7 100)', formatSummaryPercent(passed, executed), 'passRatePct');
+  } finally {
+    syncingExecSummaryMetrics = false;
+  }
+}
+
+function scheduleSyncExecSummaryFromCoverageMatrix(){
+  clearTimeout(syncExecSummaryTimer);
+  syncExecSummaryTimer = setTimeout(function(){
+    syncExecSummaryFromCoverageMatrix();
+    scheduleAutoSave();
+  }, 120);
+}
+
+function scheduleRecalculateExecSummaryDerivedMetrics(){
+  clearTimeout(recalcExecSummaryTimer);
+  recalcExecSummaryTimer = setTimeout(function(){
+    if(syncingExecSummaryMetrics) return;
+    recalculateExecSummaryDerivedMetrics();
+    scheduleAutoSave();
+  }, 120);
+}
+
 function coverageMatrixStatus(passed, failed, blocked){
   var p = Number(passed) || 0;
   var f = Number(failed) || 0;
@@ -4881,36 +5325,18 @@ function applyCoverageMatrixRows(modules){
   if(!rows.length) addRow('tbl34');
   lockReportStructure();
   updateSectionNumbers();
+  syncExecSummaryFromCoverageMatrix();
   scheduleAutoSave();
   return rows.length;
 }
 
 function applyAdoTestSummaryPayload(payload){
   repairSummaryMetricRows();
-  var s = payload.summary || {};
-  if(s.totalInScope != null){
-    setSummaryMetric('Total test cases in scope (this cycle)', s.totalInScope, 'totalInScope');
-  }
-  setSummaryMetric('Test cases executed today', s.executedToday, 'executedToday');
-  if(s.cumulativeExecuted != null){
-    setSummaryMetric('Cumulative executed (this cycle)', s.cumulativeExecuted, 'cumulativeExecuted');
-  }
-  setSummaryMetric('Passed', s.passed, 'passed');
-  setSummaryMetric('Failed', s.failed, 'failed');
-  setSummaryMetric('Blocked', s.blocked, 'blocked');
-  setSummaryMetric('Not Applicable', s.notApplicable != null ? s.notApplicable : s.skipped, 'notApplicable');
-  var notYet = s.notYetExecuted != null ? s.notYetExecuted : s.notExecuted;
-  setSummaryMetric('Not yet executed', notYet, 'notExecuted');
-  if(s.coveragePercent != null){
-    setSummaryMetric('Coverage % (executed / total \u00d7 100)', s.coveragePercent + ' %', 'coveragePct');
-  }
-  if(s.passRatePercent != null){
-    setSummaryMetric('Pass rate % (passed / executed \u00d7 100)', s.passRatePercent + ' %', 'passRatePct');
-  }
-  if(s.scopeText){
+  if(payload.summary && payload.summary.scopeText){
     var scopeEl = document.getElementById('scopeTestedToday');
-    if(scopeEl) scopeEl.innerHTML = String(s.scopeText).replace(/\n/g, '<br>');
+    if(scopeEl) scopeEl.innerHTML = String(payload.summary.scopeText).replace(/\n/g, '<br>');
   }
+  // Matrix is the source of truth for Test Execution Summary values + dynamic %
   var moduleCount = applyCoverageMatrixRows(payload.modules || []);
   scheduleAutoSave();
   return moduleCount;
@@ -5184,6 +5610,94 @@ function normalizeModuleCoveredPanel(){
   var inner = panel.querySelector('.scope-panel-inner, .automation-module-inner');
   if(inner) inner.className = 'automation-module-inner';
   return true;
+}
+
+var MODULE_COVERED_PLACEHOLDER_HTML = '&#8226; [Module / Feature 1]<br>&#8226; [Add modules covered]';
+var syncModuleCoveredTimer = null;
+
+function isAutomationModulePlaceholder(text){
+  var t = String(text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+  if(!t) return true;
+  if(t === '\u2014' || t === '-' || t === '\u2013') return true;
+  if(/^\[add module\]$/i.test(t)) return true;
+  if(/^\[module\s*\/\s*feature/i.test(t)) return true;
+  if(/^\[add modules covered\]$/i.test(t)) return true;
+  return false;
+}
+
+function collectUniqueAutomationModules(){
+  var table = document.getElementById('tblAutomation');
+  if(!table) return [];
+  var modules = [];
+  var seen = {};
+  for(var r = 1; r < table.rows.length; r++){
+    var cell = table.rows[r].cells[0];
+    if(!cell) continue;
+    var name = String(cell.textContent || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    if(isAutomationModulePlaceholder(name)) continue;
+    var key = name.toLowerCase();
+    if(seen[key]) continue;
+    seen[key] = true;
+    modules.push(name);
+  }
+  return modules;
+}
+
+function parseModuleCoveredList(){
+  var el = document.getElementById('moduleCovered');
+  if(!el) return [];
+  var text = String(el.innerText || el.textContent || '').replace(/\u00a0/g, ' ');
+  var modules = [];
+  var seen = {};
+  text.split(/\n+/).forEach(function(line){
+    var name = String(line || '').replace(/^\s*[\u2022\u2023\u2043\u2219\u00b7•\-\*]+\s*/, '').replace(/\s+/g, ' ').trim();
+    if(isAutomationModulePlaceholder(name)) return;
+    var key = name.toLowerCase();
+    if(!name || seen[key]) return;
+    seen[key] = true;
+    modules.push(name);
+  });
+  return modules;
+}
+
+function writeModuleCoveredList(modules){
+  repairModuleCoveredPanel();
+  var el = document.getElementById('moduleCovered');
+  if(!el) return 0;
+  modules = Array.isArray(modules) ? modules.filter(function(m){ return !isAutomationModulePlaceholder(m); }) : [];
+  if(!modules.length){
+    el.innerHTML = MODULE_COVERED_PLACEHOLDER_HTML;
+    el.classList.add('e');
+    el.setAttribute('contenteditable', 'true');
+    return 0;
+  }
+  el.innerHTML = modules.map(function(name){
+    return '&#8226; ' + escapeHtmlText(name);
+  }).join('<br>');
+  el.classList.add('e');
+  el.setAttribute('contenteditable', 'true');
+  return modules.length;
+}
+
+function syncModuleCoveredFromAutomation(options){
+  options = options || {};
+  var fromTable = collectUniqueAutomationModules();
+  // Empty table: keep any manually entered Module Covered list (don't wipe on load/clear placeholders)
+  if(!fromTable.length && !options.replace){
+    var existing = parseModuleCoveredList();
+    if(existing.length) return existing.length;
+    return writeModuleCoveredList([]);
+  }
+  // Unique names only: table order, case-insensitive dedupe
+  return writeModuleCoveredList(fromTable);
+}
+
+function scheduleSyncModuleCoveredFromAutomation(){
+  clearTimeout(syncModuleCoveredTimer);
+  syncModuleCoveredTimer = setTimeout(function(){
+    syncModuleCoveredFromAutomation();
+    scheduleAutoSave();
+  }, 120);
 }
 
 function repairModuleCoveredPanel(){
@@ -5590,6 +6104,7 @@ function clearAutomationTable(){
   }
   if(!confirm('Clear all automation testing rows?')) return;
   applyPlaywrightRowsToTable([], { replace: true });
+  syncModuleCoveredFromAutomation({ replace: true });
   ensureAutomationClearButton();
   showToast('Cleared automation testing rows.');
   setSaveStatus('ok', 'Automation table cleared');
@@ -5658,6 +6173,7 @@ function applyPlaywrightRowsToTable(rows, options){
   }
   restripeAutomationTable(table);
   ensureAutomationClearButton();
+  syncModuleCoveredFromAutomation();
   lockReportStructure();
   updateSectionNumbers();
   scheduleAutoSave();
@@ -6016,18 +6532,22 @@ function repairLiveBlockersPanelFromTable(tablePanel){
   return true;
 }
 
-function compactLiveBlockersPanel(){
+function compactLiveBlockersPanel(options){
+  options = options || {};
+  var keepStretch = !!options.keepStretch;
   var panel = document.getElementById('blockersPanel');
   if(panel && panel.tagName === 'TABLE'){
     repairLiveBlockersPanelFromTable(panel);
     panel = document.getElementById('blockersPanel');
   }
   if(!panel) return;
-  panel.style.height = '';
-  panel.style.minHeight = '';
-  panel.style.maxHeight = '';
+  if(!keepStretch){
+    panel.style.height = '';
+    panel.style.minHeight = '';
+    panel.style.maxHeight = '';
+    panel.removeAttribute('height');
+  }
   panel.style.tableLayout = '';
-  panel.removeAttribute('height');
   panel.style.display = 'flex';
   panel.style.flexDirection = 'column';
   var header = panel.querySelector('.blockers-header');
@@ -6040,11 +6560,13 @@ function compactLiveBlockersPanel(){
   }
   var body = document.getElementById('bugTrackerBlockers');
   if(body){
-    body.style.height = '';
-    body.style.minHeight = '';
-    body.style.maxHeight = '';
-    body.style.flex = '0 0 auto';
-    body.removeAttribute('height');
+    if(!keepStretch){
+      body.style.height = '';
+      body.style.minHeight = '';
+      body.style.maxHeight = '';
+      body.removeAttribute('height');
+    }
+    body.style.flex = '1 1 auto';
     body.classList.add('blockers-body');
   }
 }
@@ -6107,10 +6629,8 @@ function formatBlockerPointHtml(text){
 }
 
 function createBlockerStripeMarkup(outlookMode, stripeHeight){
-  if(outlookMode){
-    var h = Math.max(Math.round(stripeHeight || 14), 10);
-    return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="blocker-stripe-table" style="border-collapse:collapse;"><tr><td bgcolor="#e87070" class="blocker-stripe" height="' + h + '" style="background-color:#e87070;width:3px;height:' + h + 'px;border-radius:2px;font-size:1px;line-height:1px;padding:0;margin:0;">&#8203;</td></tr></table>';
-  }
+  // Outlook/Word turns 3px colored cells into a "|" glyph — keep stripes live-only.
+  if(outlookMode) return '';
   return '<span class="blocker-stripe" contenteditable="false" aria-hidden="true"></span>';
 }
 
@@ -6126,10 +6646,13 @@ function buildBlockerPointHtml(text, outlookMode, textStyle, measuredStripeHeigh
     : calcBlockerStripeHeightPx(text, textStyle);
 
   if(outlookMode){
-    return '<table role="presentation" class="blocker-point" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin-bottom:6px;">' +
-      '<tr><td class="blocker-stripe-cell" width="14" valign="top" style="width:14px;padding:2px 8px 4px 0;vertical-align:top;">' +
-      createBlockerStripeMarkup(true, stripeHeight) +
-      '</td><td class="blocker-text" valign="top" style="' + textStyleStr + 'vertical-align:top;padding:0;margin:0;">' +
+    // 8px stripe + spacer — matches live red bar; 3px cells become "|" in Outlook.
+    var h = Math.max(Math.round(stripeHeight || 18), 14);
+    return '<table role="presentation" class="blocker-point" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin:0 0 6px 0;">' +
+      '<tr>' +
+      '<td width="8" bgcolor="#e87070" valign="top" style="width:8px;max-width:8px;background-color:#e87070;font-size:0;line-height:' + h + 'px;height:' + h + 'px;padding:0;border:0;">&nbsp;</td>' +
+      '<td width="8" style="width:8px;max-width:8px;font-size:0;line-height:0;padding:0;">&nbsp;</td>' +
+      '<td class="blocker-text" valign="top" style="' + textStyleStr + 'vertical-align:top;padding:0;margin:0;">' +
       formatBlockerPointHtml(text) + '</td></tr></table>';
   }
   return '<div class="blocker-point">' + createBlockerStripeMarkup(false, stripeHeight) +
@@ -6331,8 +6854,9 @@ function buildScopePointHtml(text, outlookMode, textStyle){
   if(lh) textStyleStr += 'line-height:' + lh + ';';
 
   if(outlookMode){
-    return '<table role="presentation" class="scope-point" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin-bottom:6px;">' +
-      '<tr><td class="scope-bullet-cell" width="14" valign="top" style="width:14px;padding:0 8px 4px 0;vertical-align:top;color:#222222;font-weight:700;font-size:' + (fs || '12.5px') + ';">&#8226;</td>' +
+    return '<table role="presentation" class="scope-point" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;margin:0 0 6px 0;">' +
+      '<tr>' +
+      '<td width="14" valign="top" style="width:14px;color:#222222;font-weight:700;vertical-align:top;padding:0 6px 0 0;font-family:Arial,Helvetica,sans-serif;">&#8226;</td>' +
       '<td class="scope-text" valign="top" style="' + textStyleStr + 'vertical-align:top;padding:0;margin:0;">' +
       formatBlockerPointHtml(text) + '</td></tr></table>';
   }
@@ -6546,7 +7070,9 @@ var pageOnePanelSyncTimer = null;
 
 function fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, blockersEl){
   scopePanel.style.height = '';
+  scopePanel.style.minHeight = '';
   blockersPanel.style.height = '';
+  blockersPanel.style.minHeight = '';
   scopePanel.removeAttribute('height');
   blockersPanel.removeAttribute('height');
 
@@ -6557,9 +7083,35 @@ function fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, block
 
   compactLiveBlockersPanel();
 
-  var finalTarget = Math.max(scopePanel.offsetHeight, blockersPanel.offsetHeight);
-  scopePanel.setAttribute('data-export-height', finalTarget);
-  blockersPanel.setAttribute('data-export-height', finalTarget);
+  scopePanel.style.display = 'flex';
+  scopePanel.style.flexDirection = 'column';
+  blockersPanel.style.display = 'flex';
+  blockersPanel.style.flexDirection = 'column';
+
+  var scopeInner = scopePanel.querySelector('.scope-panel-inner');
+  if(scopeInner) scopeInner.style.flex = '1 1 auto';
+  blockersEl.style.flex = '1 1 auto';
+  blockersEl.classList.add('blockers-body');
+
+  // Measure natural bottoms, then stretch the shorter panel so both columns end even
+  void scopePanel.offsetHeight;
+  var scopeRect = scopePanel.getBoundingClientRect();
+  var blockersRect = blockersPanel.getBoundingClientRect();
+  var delta = Math.round(scopeRect.bottom - blockersRect.bottom);
+
+  if(delta > 1){
+    var blockersTarget = blockersPanel.offsetHeight + delta;
+    blockersPanel.style.minHeight = blockersTarget + 'px';
+    blockersPanel.style.height = blockersTarget + 'px';
+  } else if(delta < -1){
+    var scopeTarget = scopePanel.offsetHeight - delta;
+    scopePanel.style.minHeight = scopeTarget + 'px';
+    scopePanel.style.height = scopeTarget + 'px';
+  }
+
+  // Store each panel's own stretched height (columns align; panel heights may differ)
+  scopePanel.setAttribute('data-export-height', String(Math.round(scopePanel.offsetHeight || 0)));
+  blockersPanel.setAttribute('data-export-height', String(Math.round(blockersPanel.offsetHeight || 0)));
   scopeEl.setAttribute('data-export-font-size', scopeEl.style.fontSize || '');
   blockersEl.setAttribute('data-export-font-size', blockersEl.style.fontSize || '');
   scopeEl.setAttribute('data-export-line-height', scopeEl.style.lineHeight || '');
@@ -6574,6 +7126,7 @@ function syncPageOnePanelLayout(){
   if(!scopePanel || !blockersPanel || !scopeEl || !blockersEl) return;
 
   resetPageOnePanelHeights();
+  compactLiveBlockersPanel();
 
   var scopeVol = measurePanelVolume(scopeEl);
   var blockersVol = measurePanelVolume(blockersEl);
@@ -6590,7 +7143,6 @@ function syncPageOnePanelLayout(){
   blockersEl.style.fontSize = blockersFont + 'px';
   blockersEl.style.lineHeight = '1.45';
 
-  fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, blockersEl);
   scopePanel.style.width = '100%';
   scopePanel.style.maxWidth = '100%';
   matchBlockersWidthToTracker(document);
@@ -6604,14 +7156,19 @@ function syncPageOnePanelLayout(){
   applyBlockersTextStyle(blockersEl, blockersStyle);
   bindBlockerTextFields(blockersEl);
   compactLiveBlockersPanel();
+  fitPageOnePanelsToEqualHeight(scopePanel, blockersPanel, scopeEl, blockersEl);
+  compactLiveBlockersPanel({ keepStretch: true });
   lockReportStructure();
 }
 
 function schedulePageOnePanelSync(){
   if(pageOnePanelSyncTimer) cancelAnimationFrame(pageOnePanelSyncTimer);
   pageOnePanelSyncTimer = requestAnimationFrame(function(){
-    pageOnePanelSyncTimer = null;
-    syncPageOnePanelLayout();
+    // Second frame waits for fonts/layout to settle before measuring
+    pageOnePanelSyncTimer = requestAnimationFrame(function(){
+      pageOnePanelSyncTimer = null;
+      syncPageOnePanelLayout();
+    });
   });
 }
 
@@ -7211,10 +7768,8 @@ function syncDefectLogFromTracker(){
           if(syncMeta){
             updateDefectRowFromIssue(row, syncMeta, entryMap[key].source);
           } else {
+            // Keep existing populated cells; only refresh the Jira ID link
             setJiraCellContent(row.cells[0], entryMap[key]);
-            if(row.cells[7]){
-              applyStatusCellStyle(row.cells[7], entryMap[key].status, entryMap[key]);
-            }
           }
         }
       }
@@ -7232,15 +7787,14 @@ function syncDefectLogFromTracker(){
     var stripe = false;
     entries.forEach(function(entry){
       var entryMeta = entry.issue || getIssueMeta(entry.key);
-      var entryEligible;
-      if(entryMeta) entryEligible = isDefectLogEligible(entryMeta);
-      else if(isFixedOrCanceledStatusName(entry.status) || isFixedOrCanceledStatusName(entry.statusLabel)) entryEligible = false;
-      else entryEligible = !isClosedJiraStatus(entry.status);
-      if(!entryEligible) return;
+      // Never create shell defect rows (ID + Open + dashes) without Jira/ADO meta
+      if(!entryMeta) return;
+      if(!isDefectLogEligible(entryMeta)) return;
       var entryKey = normalizeIssueKey(entry.key) || String(entry.key || '');
       if(!entryKey || existingKeys[entryKey] || existingKeys[entryKey.toUpperCase()]) return;
       stripe = !stripe;
-      var newRow = createSyncedDefectRow(entry, stripe ? 'background:#fdecee;' : '');
+      var filledEntry = Object.assign({}, entry, { issue: entryMeta, status: entryMeta.status || entry.status });
+      var newRow = createSyncedDefectRow(filledEntry, stripe ? 'background:#fdecee;' : '');
       placeholderRow.parentNode.insertBefore(newRow, placeholderRow);
       existingKeys[entryKey] = newRow;
       existingKeys[entryKey.toUpperCase()] = newRow;
@@ -7367,6 +7921,7 @@ document.addEventListener('DOMContentLoaded', function(){
     localStorage.removeItem('ndf-qa-report-v3-ts');
   } catch(e){}
   var restored = loadProgress();
+  hydrateIssueMapsFromPersistent();
   repairBannerStyles();
   setHeaderDateToToday();
   repairFooterText();
@@ -7386,11 +7941,14 @@ document.addEventListener('DOMContentLoaded', function(){
   ensureAutomationClearButton();
   normalizeModuleCoveredPanel();
   normalizeAutomationStatusCells(document.getElementById('tblAutomation'));
+  syncModuleCoveredFromAutomation();
+  syncExecSummaryFromCoverageMatrix();
   lockReportStructure();
   repairTrackerSyncRows();
   initOutlookSections();
   initJiraLinks();
   initPageOnePanels();
+  syncExecSummaryFromCoverageMatrix();
   requestAnimationFrame(function(){
     if(isReportStructureBroken()) repairCorruptedReportIfNeeded();
     forcePageOnePanels();
@@ -7447,6 +8005,12 @@ document.addEventListener('DOMContentLoaded', function(){
   report.addEventListener('click', function(e){
     var jiraCell = e.target.closest ? e.target.closest('.jira-link') : null;
     if(jiraCell) rememberJiraCell(jiraCell);
+    var clickedCell = e.target.closest ? e.target.closest('td,th') : null;
+    var clickedRow = clickedCell && clickedCell.closest ? clickedCell.closest('tr') : null;
+    var clickedTable = clickedRow && clickedRow.closest ? clickedRow.closest('table[id]') : null;
+    if(clickedRow && clickedTable && clickedTable.id){
+      rememberSelectedTableRow(clickedRow, clickedTable.id);
+    }
     var a = e.target.closest ? e.target.closest('a') : null;
     if(a && a.getAttribute('href') && a.closest('.jira-link')){
       e.preventDefault();
@@ -7456,6 +8020,12 @@ document.addEventListener('DOMContentLoaded', function(){
   report.addEventListener('focusin', function(e){
     var jiraCell = e.target.closest ? e.target.closest('.jira-link') : null;
     if(jiraCell) rememberJiraCell(jiraCell);
+    var focusedCell = e.target.closest ? e.target.closest('td,th') : null;
+    var focusedRow = focusedCell && focusedCell.closest ? focusedCell.closest('tr') : null;
+    var focusedTable = focusedRow && focusedRow.closest ? focusedRow.closest('table[id]') : null;
+    if(focusedRow && focusedTable && focusedTable.id){
+      rememberSelectedTableRow(focusedRow, focusedTable.id);
+    }
   });
   report.addEventListener('blur', function(e){
     var reproCell = e.target.closest ? e.target.closest('.repro-steps-cell') : null;
@@ -7497,6 +8067,24 @@ document.addEventListener('DOMContentLoaded', function(){
     if(isPageOneDetailField(container)){
       lockReportStructure();
       schedulePageOnePanelSync();
+    }
+    if(container && container.closest && container.closest('#tblAutomation')){
+      var autoCell = container.closest('td,th');
+      var autoRow = autoCell && autoCell.parentNode;
+      if(autoRow && autoRow.cells && autoCell === autoRow.cells[0]){
+        scheduleSyncModuleCoveredFromAutomation();
+      }
+    }
+    if(container && container.closest && container.closest('#tbl34')){
+      scheduleSyncExecSummaryFromCoverageMatrix();
+    }
+    if(container && container.closest && container.closest('#tblExecSummary')){
+      var metricCell = container.closest('[data-metric]');
+      var metricKey = metricCell && metricCell.getAttribute('data-metric');
+      // Recalc % when editing counts; ignore edits directly on the % cells
+      if(metricKey && metricKey !== 'coveragePct' && metricKey !== 'passRatePct' && metricKey !== 'notExecuted'){
+        scheduleRecalculateExecSummaryDerivedMetrics();
+      }
     }
     scheduleAutoSave();
   });
